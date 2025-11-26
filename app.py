@@ -5,23 +5,95 @@ import plotly.graph_objects as go
 from data_loader import fetch_data
 from strategy import RotationStrategy
 
+from portfolio_manager import load_portfolio, save_portfolio
+from auth_manager import authenticate_user, register_user
+
 st.set_page_config(page_title="Market Rotation Strategy", layout="wide")
+
+# Session State Initialization
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'username' not in st.session_state:
+    st.session_state.username = None
+
+# --- Authentication Flow ---
+if not st.session_state.authenticated:
+    st.title("Market Rotation Strategy - Login")
+    
+    tab1, tab2 = st.tabs(["Login", "Register"])
+    
+    with tab1:
+        username = st.text_input("Username", key="login_user")
+        password = st.text_input("Password", type="password", key="login_pass")
+        if st.button("Login"):
+            if authenticate_user(username, password):
+                st.session_state.authenticated = True
+                st.session_state.username = username
+                st.success("Logged in successfully!")
+                st.rerun()
+            else:
+                st.error("Invalid username or password")
+                
+    with tab2:
+        new_user = st.text_input("Username", key="reg_user")
+        new_pass = st.text_input("Password", type="password", key="reg_pass")
+        if st.button("Register"):
+            if new_user and new_pass:
+                success, msg = register_user(new_user, new_pass)
+                if success:
+                    st.success(msg)
+                else:
+                    st.error(msg)
+            else:
+                st.error("Please fill in all fields")
+    
+    st.stop() # Stop execution here if not logged in
+
+# --- Main Application (Authenticated) ---
+
+st.sidebar.title(f"User: {st.session_state.username}")
+if st.sidebar.button("Logout"):
+    st.session_state.authenticated = False
+    st.session_state.username = None
+    st.rerun()
 
 st.title("Market Rotation Strategy")
 
 # Sidebar Parameters
 st.sidebar.header("Strategy Parameters")
 
-base_weights = {
-    'VOO': 0.40,
-    'BRK-B': 0.30,
-    'SPMO': 0.15,
-    'QQQM': 0.15
-}
+# Load Portfolio (User Specific)
+if 'base_weights' not in st.session_state:
+    st.session_state.base_weights = load_portfolio(st.session_state.username)
 
 st.sidebar.subheader("Base Weights")
-# Display base weights (static for now as per prompt, but could be editable)
-st.sidebar.json(base_weights)
+
+# Convert dictionary to DataFrame for editing
+import pandas as pd
+weights_df = pd.DataFrame(list(st.session_state.base_weights.items()), columns=['Ticker', 'Weight'])
+
+# Editable Dataframe
+edited_df = st.sidebar.data_editor(
+    weights_df,
+    num_rows="dynamic",
+    use_container_width=True,
+    key="weight_editor"
+)
+
+# Save Button
+if st.sidebar.button("Save Portfolio"):
+    # Convert back to dictionary
+    new_weights = dict(zip(edited_df['Ticker'], edited_df['Weight']))
+    
+    if save_portfolio(st.session_state.username, new_weights):
+        st.session_state.base_weights = new_weights
+        st.sidebar.success("Saved!")
+        st.rerun()
+    else:
+        st.sidebar.error("Failed to save.")
+
+# Use the session state weights for calculation
+base_weights = st.session_state.base_weights
 
 st.sidebar.subheader("Adjustment Factors")
 trend_adj = st.sidebar.slider("Trend Adjustment (50-day MA)", 0.0, 0.20, 0.10, 0.01)

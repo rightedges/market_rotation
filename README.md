@@ -1,3 +1,56 @@
+# Market Rotation Strategy Webapp
+
+## About
+The **Market Rotation Strategy Webapp** is a data-driven investment tool designed to optimize portfolio allocations based on market trends and relative performance. It helps investors avoid emotional decision-making by providing clear, rule-based signals for when to overweight or underweight specific assets.
+
+The app visualizes current recommendations, backtests performance against a benchmark (VOO), and provides a transparent view of the logic driving each decision.
+
+## Strategy Logic
+
+### Core Philosophy
+This strategy avoids blindly chasing up-weeks by using **Trend** and **Relative Performance** filters to make data-driven rotation decisions.
+
+### 1. Trend Filter (50-Day Moving Average)
+-   **Indicator**: 50-day Simple Moving Average (SMA).
+-   **Logic**:
+    -   If Price > 50-day SMA → **Uptrend** → Increase Weight (Overweight).
+    -   If Price < 50-day SMA → **Downtrend** → Decrease Weight (Underweight).
+-   **Adjustment**: Default +/- 10% (Adjustable).
+
+### 2. Relative Performance (vs Benchmark)
+-   **Indicator**: 3-Month Return vs VOO (S&P 500).
+-   **Logic**:
+    -   If Asset Return > VOO Return → **Outperforming** → Increase Weight.
+    -   If Asset Return < VOO Return → **Underperforming** → Decrease Weight.
+-   **Adjustment**: Default +/- 5% (Adjustable).
+
+### 3. Mixed Signals & Net Adjustment
+The adjustments are **additive**. If an asset has mixed signals, they partially offset each other.
+
+**Example:**
+-   **Trend**: Uptrend (+10%)
+-   **Relative Performance**: Underperform (-5%)
+-   **Net Result**: Base Weight + 10% - 5% = **Base + 5%**
+
+### 4. Real-World Example Calculation
+Let's say we are evaluating **QQQM** (Base Weight: 15%).
+
+**Scenario:**
+1.  **Price Check**: QQQM Price ($180) > 50-day MA ($170).
+    -   **Result**: Uptrend (+10% Adjustment).
+2.  **Relative Performance**: QQQM 3M Return (+2%) < VOO 3M Return (+5%).
+    -   **Result**: Underperforming (-5% Adjustment).
+
+**Calculation:**
+-   **Base Weight**: 15% (0.15)
+-   **Trend Adj**: +0.10
+-   **Rel Perf Adj**: -0.05
+-   **Raw Weight**: 0.15 + 0.10 - 0.05 = **0.20 (20%)**
+
+*Note: After calculating raw weights for all assets, they are normalized to sum to 100% and then rounded to the nearest 5%.*
+
+---
+
 # Market Rotation Strategy Webapp - Deployment Guide
 
 This guide provides step-by-step instructions for deploying the Market Rotation Strategy Webapp in a **Proxmox LXC (Linux Container)** environment.
