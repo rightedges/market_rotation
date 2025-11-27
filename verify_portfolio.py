@@ -12,25 +12,26 @@ def test_persistence():
         os.remove(TEST_FILE)
         
     # 2. Test Default Load
-    weights = load_portfolio()
+    weights = load_portfolio("testuser")
     default_weights = get_default_portfolio()
     assert weights == default_weights, "Failed to load default weights"
     print("✓ Default load successful")
     
     # 3. Test Save
     new_weights = {"AAPL": 0.5, "GOOG": 0.5}
-    save_success = save_portfolio(new_weights)
+    save_success = save_portfolio("testuser", new_weights)
     assert save_success, "Failed to save portfolio"
-    assert os.path.exists(TEST_FILE), "File not created"
+    assert os.path.exists("data/testuser_portfolio.json"), "File not created"
     print("✓ Save successful")
     
     # 4. Test Load Saved
-    loaded_weights = load_portfolio()
+    loaded_weights = load_portfolio("testuser")
     assert loaded_weights == new_weights, "Failed to load saved weights"
     print("✓ Load saved successful")
     
     # 5. Cleanup
-    os.remove(TEST_FILE)
+    if os.path.exists("data/testuser_portfolio.json"):
+        os.remove("data/testuser_portfolio.json")
     print("✓ Cleanup successful")
     
     print("\nAll tests passed!")

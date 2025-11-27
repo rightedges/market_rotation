@@ -13,9 +13,9 @@ def get_default_portfolio():
     """Returns the default base weights."""
     return {
         'VOO': 0.40,
-        'BRK-B': 0.30,
-        'SPMO': 0.15,
-        'QQQM': 0.15
+        'BRK-B': 0.20,
+        'SPMO': 0.20,
+        'QQQM': 0.20
     }
 
 def load_portfolio(username):

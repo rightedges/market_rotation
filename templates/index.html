@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard">
+    <header class="dashboard-header">
+        <h1>Dashboard</h1>
+        <div class="date-badge">Data Date: {{ latest_date }}</div>
+    </header>
+
+    {% if error %}
+    <div class="alert error">{{ error }}</div>
+    {% else %}
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-button active" onclick="switchTab(event, 'dashboard')">Dashboard</button>
+        <button class="tab-button" onclick="switchTab(event, 'strategy')">Strategy Logic</button>
+    </div>
+
+    <!-- Dashboard Tab -->
+    <div id="tab-dashboard" class="tab-content active">
+        <div class="grid-container">
+            <!-- Holdings Table -->
+            <div class="card holdings-card">
+                <div class="card-header">
+                    <h3>Current Holdings & Signals</h3>
+                    <button onclick="openEditor()" class="btn-small">Edit Portfolio</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Price</th>
+                            <th>Trend</th>
+                            <th>3M Ret</th>
+                            <th>Rel Perf</th>
+                            <th>Target Weight</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in holdings %}
+                        <tr>
+                            <td><strong>{{ item.ticker }}</strong></td>
+                            <td>${{ item.price }}</td>
+                            <td>
+                                <span class="badge {{ 'up' if item.trend == 'Uptrend' else 'down' }}">
+                                    {{ item.trend }}
+                                </span>
+                            </td>
+                            <td>{{ item.ret_3m }}</td>
+                            <td>
+                                <span
+                                    class="badge {{ 'up' if item.rel_signal == 'Outperform' else 'down' if item.rel_signal == 'Underperform' else 'neutral' }}">
+                                    {{ item.rel_signal }}
+                                </span>
+                            </td>
+                            <td class="highlight">{{ item.target_weight }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Chart & Metrics -->
+            <div class="card chart-card">
+                <h3>Backtest Performance</h3>
+
+                <!-- Metrics -->
+                <div class="metrics-container">
+                    <div class="metric-card">
+                        <div class="metric-label">Total Return</div>
+                        <div class="metric-value">{{ metrics.total_return }}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">CAGR</div>
+                        <div class="metric-value">{{ metrics.cagr }}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Max Drawdown</div>
+                        <div class="metric-value down">{{ metrics.max_drawdown }}</div>
+                    </div>
+                </div>
+
+                <div class="chart-container" style="position: relative; height: 400px;">
+                    <canvas id="perfChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rotation History -->
+        <div class="card history-card">
+            <h3>Monthly Rotation History</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            {% for t in tickers %}
+                            <th>{{ t }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rotation_history %}
+                        <tr>
+                            <td>{{ row.date }}</td>
+                            {% for t in tickers %}
+                            <td>{{ row[t] }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Strategy Tab -->
+    <div id="tab-strategy" class="tab-content">
+        <!-- Strategy Logic -->
+        <div class="card strategy-card">
+            <h3>Strategy Logic</h3>
+            <div class="strategy-content">
+                <h4>Core Philosophy</h4>
+                <p>This strategy avoids blindly chasing up-weeks by using <strong>Trend</strong> and <strong>Relative
+                        Performance</strong> filters to make data-driven rotation decisions.</p>
+
+                <div class="logic-grid">
+                    <div class="logic-item">
+                        <h4>1. Trend Filter (50-Day MA)</h4>
+                        <ul>
+                            <li><strong>Indicator:</strong> 50-day Simple Moving Average (SMA).</li>
+                            <li><strong>Logic:</strong>
+                                <ul>
+                                    <li>Price > SMA → <strong>Uptrend</strong> → Overweight (+10%)</li>
+                                    <li>Price < SMA → <strong>Downtrend</strong> → Underweight (-10%)</li>
+                                </ul>
+                            </li>
+                            <li><em>Note: Benchmark (VOO) is excluded from this adjustment.</em></li>
+                        </ul>
+                    </div>
+
+                    <div class="logic-item">
+                        <h4>2. Relative Performance</h4>
+                        <ul>
+                            <li><strong>Indicator:</strong> 3-Month Return vs Benchmark (VOO).</li>
+                            <li><strong>Logic:</strong>
+                                <ul>
+                                    <li>Return > VOO → <strong>Outperform</strong> → Overweight (+5%)</li>
+                                    <li>Return < VOO → <strong>Underperform</strong> → Underweight (-5%)</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>3. Net Adjustment & Constraints</h4>
+                <p>Adjustments are additive. The Benchmark (VOO) weight is strictly fixed at its base allocation (e.g.,
+                    40%)
+                    to ensure core stability. Other assets are normalized around this constraint.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Portfolio Editor Modal -->
+    <div id="editorModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditor()">&times;</span>
+            <h3>Edit Base Portfolio</h3>
+            <div class="editor-container">
+                <table id="editorTable">
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Base Weight</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Rows will be populated by JS -->
+                    </tbody>
+                </table>
+                <button type="button" onclick="addTickerRow()" class="btn-secondary" style="margin-top: 1rem;">+ Add
+                    Ticker</button>
+            </div>
+            <div class="modal-actions">
+                <button type="button" onclick="savePortfolio()" class="btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Chart
+    const ctx = document.getElementById('perfChart').getContext('2d');
+    const chartData = JSON.parse('{{ chart_data | safe }}');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                {
+                    label: 'Portfolio Value',
+                    data: chartData.values,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    tension: 0.1,
+                    fill: true
+                },
+                {
+                    label: 'Benchmark (VOO)',
+                    data: chartData.benchmark_values,
+                    borderColor: '#9ca3af',
+                    borderDash: [5, 5],
+                    tension: 0.1,
+                    fill: false,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index',
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    grid: {
+                        color: '#f3f4f6'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // Tab Logic
+    function switchTab(event, tabId) {
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        // Deactivate all buttons
+        document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+
+        // Activate selected
+        document.getElementById('tab-' + tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+
+    // Modal Logic
+    const modal = document.getElementById("editorModal");
+    // Pass current holdings to JS
+    const currentHoldings = [
+        {% for item in holdings %}
+    { ticker: "{{ item.ticker }}", weight: { { item.base_weight } } },
+    {% endfor %}
+    ];
+
+    function openEditor() {
+        modal.style.display = "block";
+        renderEditorRows();
+    }
+
+    function closeEditor() {
+        modal.style.display = "none";
+    }
+
+    window.onclick = function (event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+
+    // Dynamic Editor Logic
+    function renderEditorRows() {
+        const tbody = document.querySelector('#editorTable tbody');
+        tbody.innerHTML = '';
+
+        currentHoldings.forEach((item, index) => {
+            addTickerRow(item.ticker, item.weight);
+        });
+
+        // If empty, add one empty row
+        if (currentHoldings.length === 0) {
+            addTickerRow('', 0.0);
+        }
+    }
+
+    function addTickerRow(ticker = '', weight = 0.0) {
+        const tbody = document.querySelector('#editorTable tbody');
+        const tr = document.createElement('tr');
+
+        tr.innerHTML = `
+            <td><input type="text" class="input-ticker" value="${ticker}" placeholder="Ticker"></td>
+            <td><input type="number" step="0.01" class="input-weight" value="${weight}" placeholder="0.2"></td>
+            <td><button type="button" onclick="removeTickerRow(this)" class="btn-danger">×</button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    function removeTickerRow(btn) {
+        const row = btn.closest('tr');
+        row.remove();
+    }
+
+    // Save Logic
+    async function savePortfolio() {
+        const rows = document.querySelectorAll('#editorTable tbody tr');
+        const data = {};
+
+        rows.forEach(row => {
+            const ticker = row.querySelector('.input-ticker').value.toUpperCase().trim();
+            const weight = parseFloat(row.querySelector('.input-weight').value);
+
+            if (ticker && !isNaN(weight)) {
+                data[ticker] = weight;
+            }
+        });
+
+        try {
+            const response = await fetch('/api/save_portfolio', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('Error saving: ' + result.message);
+            }
+        } catch (error) {
+            alert('Error saving portfolio');
+        }
+    }
+</script>
+{% endblock %}

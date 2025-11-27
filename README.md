@@ -141,7 +141,7 @@ We will set up the application in the `/opt` directory, which is a common conven
 ### Option A: Manual Test Run
 To verify everything is working:
 ```bash
-streamlit run app.py
+python server.py
 ```
 You should see output indicating the server is running on `http://0.0.0.0:8501`.
 Press `Ctrl+C` to stop it.
@@ -165,7 +165,7 @@ We will create a system service so the app starts automatically on boot and rest
 
     ```ini
     [Unit]
-    Description=Market Rotation Streamlit App
+    Description=Market Rotation Flask App
     After=network.target
 
     [Service]
@@ -173,7 +173,7 @@ We will create a system service so the app starts automatically on boot and rest
     Group=marketapp
     WorkingDirectory=/opt/market-rotation-app
     Environment="PATH=/opt/market-rotation-app/venv/bin:/usr/local/bin:/usr/bin:/bin"
-    ExecStart=/opt/market-rotation-app/venv/bin/streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+    ExecStart=/opt/market-rotation-app/venv/bin/python server.py
     Restart=always
     RestartSec=5
 

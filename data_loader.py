@@ -1,8 +1,6 @@
 import yfinance as yf
 import pandas as pd
-import streamlit as st
 
-@st.cache_data(ttl=3600)  # Cache data for 1 hour
 def fetch_data(tickers, period="5y"):
     """
     Fetches historical data for the given tickers.

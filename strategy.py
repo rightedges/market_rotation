@@ -48,9 +48,14 @@ class RotationStrategy:
         
         benchmark_3m = current_3m.get(self.benchmark_ticker, 0.0)
         
-        new_weights = {}
+        # 1. Separate Benchmark and Others
+        benchmark_weight = self.base_weights.get(self.benchmark_ticker, 0.0)
+        other_weights = {}
         
         for ticker, base_weight in self.base_weights.items():
+            if ticker == self.benchmark_ticker:
+                continue
+                
             weight = base_weight
             
             # Trend Filter
@@ -61,58 +66,62 @@ class RotationStrategy:
                 weight -= self.trend_adj
                 
             # Relative Performance
-            # If 3M Return > Benchmark 3M -> Overweight
-            # Note: For VOO itself, it compares to itself (0 diff), so maybe skip or handle?
-            # The prompt says: "Compare each ETF’s return... vs VOO". 
-            # If VOO outperforms VOO? It's equal. 
-            # Let's assume for VOO we might skip this or it just adds 0?
-            # Actually, if we treat VOO as just another asset, 
-            # if VOO > VOO is False, so it might get underweight? 
-            # That seems wrong. VOO should probably be neutral on relative perf vs itself.
+            if current_3m[ticker] > benchmark_3m:
+                weight += self.rel_adj
+            else:
+                weight -= self.rel_adj
             
-            if ticker != self.benchmark_ticker:
-                if current_3m[ticker] > benchmark_3m:
-                    weight += self.rel_adj
-                else:
-                    weight -= self.rel_adj
+            other_weights[ticker] = max(0.0, weight)
             
-            # Ensure non-negative
-            new_weights[ticker] = max(0.0, weight)
-            
-        # Normalize to sum to 1.0 first (to get accurate raw proportions)
-        total_weight = sum(new_weights.values())
-        if total_weight > 0:
-            for t in new_weights:
-                new_weights[t] /= total_weight
-        else:
-            new_weights = self.base_weights.copy()
-            
-        # Round to nearest 5% (0.05)
-        # Algorithm: Round each to nearest 0.05. 
-        # Then adjust the largest weight to make the sum exactly 1.0
+        # 3. Normalize others to sum to (1.0 - benchmark_weight)
+        target_other_sum = 1.0 - benchmark_weight
+        current_other_sum = sum(other_weights.values())
         
-        rounded_weights = {}
-        for t, w in new_weights.items():
-            rounded_weights[t] = round(w / 0.05) * 0.05
+        if current_other_sum > 0:
+            for t in other_weights:
+                other_weights[t] = (other_weights[t] / current_other_sum) * target_other_sum
+        else:
+            # Fallback: distribute evenly or proportionally to base?
+            # Let's revert to base weights for others
+            base_other_sum = sum(self.base_weights[t] for t in other_weights)
+            if base_other_sum > 0:
+                for t in other_weights:
+                    other_weights[t] = (self.base_weights[t] / base_other_sum) * target_other_sum
             
-        # Fix floating point errors (e.g. 0.30000000004)
-        for t in rounded_weights:
-            rounded_weights[t] = round(rounded_weights[t], 2)
+        # 4. Combine and Round
+        final_weights = {self.benchmark_ticker: benchmark_weight}
+        
+        # Round others to nearest 5%
+        # Note: This might make the sum drift from 1.0. We need to fix it within the "others" group.
+        
+        rounded_others = {}
+        for t, w in other_weights.items():
+            rounded_others[t] = round(w / 0.05) * 0.05
             
-        # Check sum
-        current_sum = sum(rounded_weights.values())
-        diff = round(1.0 - current_sum, 2)
+        # Let's put them all together first
+        final_weights.update(rounded_others)
+        
+        # Fix floating point
+        for t in final_weights:
+            final_weights[t] = round(final_weights[t], 2)
+            
+        # Check total sum
+        total_sum = sum(final_weights.values())
+        diff = round(1.0 - total_sum, 2)
         
         if diff != 0:
-            # Add difference to the asset with the highest raw weight (usually VOO or BRK-B)
-            # This minimizes the relative distortion.
-            # Or we could add to the one with the largest rounding error.
-            # Simple approach: Add to the largest holding.
-            max_ticker = max(new_weights, key=new_weights.get)
-            rounded_weights[max_ticker] += diff
-            rounded_weights[max_ticker] = round(rounded_weights[max_ticker], 2)
-            
-        return rounded_weights, current_prices, current_ma, current_3m
+            # Adjust one of the OTHER assets (not benchmark)
+            candidates = list(other_weights.keys())
+            if candidates:
+                # Add to the largest holding among others
+                max_ticker = max(candidates, key=lambda t: final_weights[t])
+                final_weights[max_ticker] += diff
+                final_weights[max_ticker] = round(final_weights[max_ticker], 2)
+            else:
+                # If only benchmark exists (edge case), adjust benchmark
+                final_weights[self.benchmark_ticker] += diff
+                
+        return final_weights, current_prices, current_ma, current_3m
 
     def run_backtest(self):
         """
@@ -120,8 +129,11 @@ class RotationStrategy:
         """
         self.calculate_indicators()
         
-        # Resample to monthly (end of month)
-        monthly_dates = self.data.resample('M').last().index
+        # Resample to monthly (end of month) - Get actual last trading day
+        # Group by Year-Month and take the last index
+        monthly_dates = self.data.groupby([self.data.index.year, self.data.index.month]).apply(lambda x: x.index[-1])
+        # The above returns a multi-index series, we just want the values (dates)
+        rebalance_dates = set(monthly_dates)
         
         portfolio_values = []
         weights_history = []
@@ -141,9 +153,6 @@ class RotationStrategy:
         
         # Initial weights (Base)
         current_weights = self.base_weights.copy()
-        
-        # Helper to find next rebalance date
-        rebalance_dates = set(monthly_dates)
         
         # We start from the point where we have enough data (50 days + 63 days)
         start_idx = 63 
@@ -189,10 +198,6 @@ class RotationStrategy:
             portfolio_history[date] = val
             
             # Check if rebalance needed (Month End)
-            # We rebalance at the CLOSE of the month (or open of next). 
-            # Strategy says "Monthly rotation check". 
-            # Let's assume we rebalance on the last trading day of the month.
-            
             if date in rebalance_dates:
                 # Calculate new target weights
                 target_weights, _, _, _ = self.get_signals(date)
