@@ -1,27 +1,6 @@
-import json
-import os
 import bcrypt
-
-USERS_FILE = "users.json"
-
-def load_users():
-    """Loads users from file."""
-    if not os.path.exists(USERS_FILE):
-        return {}
-    try:
-        with open(USERS_FILE, 'r') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError):
-        return {}
-
-def save_users(users):
-    """Saves users to file."""
-    try:
-        with open(USERS_FILE, 'w') as f:
-            json.dump(users, f, indent=4)
-        return True
-    except IOError:
-        return False
+from database import get_db
+import sqlite3
 
 def hash_password(password):
     """Hashes a password using bcrypt."""
@@ -33,23 +12,34 @@ def check_password(password, hashed):
 
 def register_user(username, password):
     """Registers a new user. Returns (Success, Message)."""
-    users = load_users()
-    if username in users:
-        return False, "Username already exists."
+    conn = get_db()
+    c = conn.cursor()
     
     hashed = hash_password(password)
-    users[username] = hashed
     
-    if save_users(users):
+    try:
+        c.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, hashed))
+        conn.commit()
+        conn.close()
         return True, "User registered successfully."
-    else:
-        return False, "Failed to save user database."
+    except sqlite3.IntegrityError:
+        conn.close()
+        return False, "Username already exists."
+    except Exception as e:
+        conn.close()
+        return False, f"Registration failed: {str(e)}"
 
 def authenticate_user(username, password):
     """Authenticates a user. Returns True if valid."""
-    users = load_users()
-    if username not in users:
+    conn = get_db()
+    c = conn.cursor()
+    
+    c.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
+    row = c.fetchone()
+    conn.close()
+    
+    if row is None:
         return False
     
-    hashed = users[username]
+    hashed = row['password_hash']
     return check_password(password, hashed)

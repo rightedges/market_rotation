@@ -1,13 +1,6 @@
 import json
 import os
-
-DATA_DIR = "data"
-
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
-
-def get_portfolio_file(username):
-    return os.path.join(DATA_DIR, f"{username}_portfolio.json")
+from database import get_db
 
 def get_default_holdings():
     """Returns the default base weights."""
@@ -26,58 +19,81 @@ def get_default_config():
 
 def load_user_data(username):
     """
-    Loads user data (holdings + config) from file.
-    Migrates old format (just holdings) to new format if necessary.
+    Loads user data (holdings + config) from DB.
     Returns: (holdings, config)
     """
-    filepath = get_portfolio_file(username)
-    default_holdings = get_default_holdings()
-    default_config = get_default_config()
-
-    if not os.path.exists(filepath):
-        return default_holdings, default_config
+    conn = get_db()
+    c = conn.cursor()
     
-    try:
-        with open(filepath, 'r') as f:
-            data = json.load(f)
+    # Get User ID
+    c.execute("SELECT id FROM users WHERE username = ?", (username,))
+    user_row = c.fetchone()
+    
+    if not user_row:
+        conn.close()
+        return get_default_holdings(), get_default_config()
         
-        # Check if it's the new format
-        if 'holdings' in data:
-            holdings = data['holdings']
-            config = data.get('config', default_config)
-            # Ensure config has all keys
-            for k, v in default_config.items():
-                if k not in config:
-                    config[k] = v
-            return holdings, config
-        else:
-            # Old format: data is just holdings
-            # Migrate to new format
-            new_data = {
-                'holdings': data,
-                'config': default_config
-            }
-            save_user_data(username, new_data['holdings'], new_data['config'])
-            return new_data['holdings'], new_data['config']
-
-    except (json.JSONDecodeError, IOError):
-        return default_holdings, default_config
+    user_id = user_row['id']
+    
+    # Get Holdings
+    c.execute("SELECT ticker, weight FROM portfolios WHERE user_id = ?", (user_id,))
+    rows = c.fetchall()
+    
+    if rows:
+        holdings = {row['ticker']: row['weight'] for row in rows}
+    else:
+        holdings = get_default_holdings()
+        
+    # Get Config
+    c.execute("SELECT backtest_period FROM user_configs WHERE user_id = ?", (user_id,))
+    config_row = c.fetchone()
+    
+    config = get_default_config()
+    if config_row:
+        config['backtest_period'] = config_row['backtest_period']
+        
+    conn.close()
+    return holdings, config
 
 def save_user_data(username, holdings, config):
-    """Saves user data (holdings + config) to file."""
-    filepath = get_portfolio_file(username)
-    data = {
-        'holdings': holdings,
-        'config': config
-    }
+    """Saves user data (holdings + config) to DB."""
+    conn = get_db()
+    c = conn.cursor()
+    
     try:
-        with open(filepath, 'w') as f:
-            json.dump(data, f, indent=4)
+        # Get User ID
+        c.execute("SELECT id FROM users WHERE username = ?", (username,))
+        user_row = c.fetchone()
+        
+        if not user_row:
+            conn.close()
+            return False
+            
+        user_id = user_row['id']
+        
+        # Save Holdings (Transaction)
+        # First, delete existing holdings for this user (simplest way to handle removals)
+        # Or better, upsert? Deleting and re-inserting is cleaner for "full replacement" logic
+        c.execute("DELETE FROM portfolios WHERE user_id = ?", (user_id,))
+        
+        for ticker, weight in holdings.items():
+            c.execute("INSERT INTO portfolios (user_id, ticker, weight) VALUES (?, ?, ?)",
+                      (user_id, ticker, weight))
+                      
+        # Save Config
+        backtest_period = config.get('backtest_period', '5y')
+        c.execute("INSERT OR REPLACE INTO user_configs (user_id, backtest_period) VALUES (?, ?)",
+                  (user_id, backtest_period))
+                  
+        conn.commit()
+        conn.close()
         return True
-    except IOError:
+    except Exception as e:
+        print(f"Error saving user data: {e}")
+        conn.close()
         return False
 
-# Backward compatibility aliases (optional, but good for safety if I miss a spot)
+# Backward compatibility aliases
 def load_portfolio(username):
     h, _ = load_user_data(username)
     return h

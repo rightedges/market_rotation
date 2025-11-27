@@ -3,9 +3,9 @@
         "VOO": 0.4,
         "BRK-B": 0.2,
         "SPMO": 0.2,
-        "QQQ": 0.2
+        "QQQM": 0.2
     },
     "config": {
-        "backtest_period": "10y"
+        "backtest_period": "5y"
     }
 }
