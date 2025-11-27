@@ -2,9 +2,29 @@
 
 {% block content %}
 <div class="dashboard">
-    <header class="dashboard-header">
-        <h1>Dashboard</h1>
-        <div class="date-badge">Data Date: {{ latest_date }}</div>
+    <header class="header">
+        <h1>Market Rotation Dashboard</h1>
+        <div class="header-controls">
+            <div class="control-group">
+                <label for="periodSelect">Backtest:</label>
+                <select id="periodSelect" onchange="updateSettings()">
+                    <option value="1y" {% if backtest_period=='1y' %}selected{% endif %}>1 Year</option>
+                    <option value="3y" {% if backtest_period=='3y' %}selected{% endif %}>3 Years</option>
+                    <option value="5y" {% if backtest_period=='5y' %}selected{% endif %}>5 Years</option>
+                    <option value="10y" {% if backtest_period=='10y' %}selected{% endif %}>10 Years</option>
+                    <option value="max" {% if backtest_period=='max' %}selected{% endif %}>Max</option>
+                </select>
+            </div>
+            <div class="toggle-container">
+                <span class="toggle-label">Ride the Winner (Relax Core)</span>
+                <label class="switch">
+                    <input type="checkbox" id="relaxedToggle" {% if relaxed %}checked{% endif %}
+                        onchange="toggleRelaxed()">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <span class="date">Latest Data: {{ latest_date }}</span>
+        </div>
     </header>
 
     {% if error %}
@@ -154,42 +174,54 @@
                     </div>
                 </div>
 
-                <h4>3. Net Adjustment & Constraints</h4>
-                <p>Adjustments are additive. The Benchmark (VOO) weight is strictly fixed at its base allocation (e.g.,
-                    40%)
-                    to ensure core stability. Other assets are normalized around this constraint.</p>
             </div>
         </div>
-    </div>
 
-    <!-- Portfolio Editor Modal -->
-    <div id="editorModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeEditor()">&times;</span>
-            <h3>Edit Base Portfolio</h3>
-            <div class="editor-container">
-                <table id="editorTable">
-                    <thead>
-                        <tr>
-                            <th>Ticker</th>
-                            <th>Base Weight</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Rows will be populated by JS -->
-                    </tbody>
-                </table>
-                <button type="button" onclick="addTickerRow()" class="btn-secondary" style="margin-top: 1rem;">+ Add
-                    Ticker</button>
-            </div>
-            <div class="modal-actions">
-                <button type="button" onclick="savePortfolio()" class="btn-primary">Save Changes</button>
-            </div>
+        <h4>3. Core Constraint Modes</h4>
+        <ul>
+            <li><strong>Standard Core (Default):</strong> The Benchmark (VOO) weight is strictly fixed at its base
+                allocation (e.g., 40%) to serve as a stable anchor. It is excluded from momentum adjustments.</li>
+            <li><strong>Ride the Winner (Relaxed):</strong> The Benchmark participates in the momentum strategy. It
+                gains <strong>+10%</strong> allocation if in an uptrend (Price > 50-day MA) and loses
+                <strong>-10%</strong> if in a downtrend, allowing the portfolio to "ride" the market strength.
+            </li>
+        </ul>
+
+        <h4>4. Net Adjustment & Constraints</h4>
+        <p>Adjustments are additive. In Standard mode, the Benchmark weight is fixed. Other assets are normalized around
+            this constraint.</p>
+    </div>
+</div>
+</div>
+
+<!-- Portfolio Editor Modal -->
+<div id="editorModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeEditor()">&times;</span>
+        <h3>Edit Base Portfolio</h3>
+        <div class="editor-container">
+            <table id="editorTable">
+                <thead>
+                    <tr>
+                        <th>Ticker</th>
+                        <th>Base Weight</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Rows will be populated by JS -->
+                </tbody>
+            </table>
+            <button type="button" onclick="addTickerRow()" class="btn-secondary" style="margin-top: 1rem;">+ Add
+                Ticker</button>
+        </div>
+        <div class="modal-actions">
+            <button type="button" onclick="savePortfolio()" class="btn-primary">Save Changes</button>
         </div>
     </div>
+</div>
 
-    {% endif %}
+{% endif %}
 </div>
 {% endblock %}
 
@@ -210,7 +242,7 @@
                     borderColor: '#2563eb',
                     backgroundColor: 'rgba(37, 99, 235, 0.1)',
                     tension: 0.1,
-                    fill: true
+                    fill: false
                 },
                 {
                     label: 'Benchmark (VOO)',
@@ -262,12 +294,19 @@
         event.currentTarget.classList.add('active');
     }
 
+    function toggleRelaxed() {
+        const isChecked = document.getElementById('relaxedToggle').checked;
+        const url = new URL(window.location.href);
+        url.searchParams.set('relaxed', isChecked);
+        window.location.href = url.toString();
+    }
+
     // Modal Logic
     const modal = document.getElementById("editorModal");
     // Pass current holdings to JS
     const currentHoldings = [
         {% for item in holdings %}
-    { ticker: "{{ item.ticker }}", weight: { { item.base_weight } } },
+    { ticker: "{{ item.ticker }}", weight: {{ item.base_weight }} },
     {% endfor %}
     ];
 
@@ -349,6 +388,30 @@
             }
         } catch (error) {
             alert('Error saving portfolio');
+        }
+    }
+
+    // Settings Logic
+    async function updateSettings() {
+        const period = document.getElementById('periodSelect').value;
+
+        try {
+            const response = await fetch('/api/update_settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ backtest_period: period }),
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('Error saving settings: ' + result.message);
+            }
+        } catch (error) {
+            alert('Error saving settings');
         }
     }
 </script>

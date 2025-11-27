@@ -2,19 +2,21 @@ import pandas as pd
 import numpy as np
 
 class RotationStrategy:
-    def __init__(self, data, base_weights, trend_adj=0.10, rel_adj=0.05, benchmark_ticker='VOO'):
+    def __init__(self, data, base_weights, trend_adj=0.10, rel_adj=0.05, benchmark_ticker='VOO', relaxed_constraint=False):
         """
         data: DataFrame of Close prices
         base_weights: dict {ticker: weight}
         trend_adj: float (e.g., 0.10 for 10%)
         rel_adj: float (e.g., 0.05 for 5%)
         benchmark_ticker: str
+        relaxed_constraint: bool (If True, benchmark weight is not fixed)
         """
         self.data = data
         self.base_weights = base_weights
         self.trend_adj = trend_adj
         self.rel_adj = rel_adj
         self.benchmark_ticker = benchmark_ticker
+        self.relaxed_constraint = relaxed_constraint
         self.tickers = list(base_weights.keys())
         
     def calculate_indicators(self):
@@ -48,59 +50,85 @@ class RotationStrategy:
         
         benchmark_3m = current_3m.get(self.benchmark_ticker, 0.0)
         
-        # 1. Separate Benchmark and Others
-        benchmark_weight = self.base_weights.get(self.benchmark_ticker, 0.0)
-        other_weights = {}
+        target_weights = {}
         
-        for ticker, base_weight in self.base_weights.items():
-            if ticker == self.benchmark_ticker:
-                continue
+        if self.relaxed_constraint:
+            # Relaxed Mode: Treat all tickers (including benchmark) equally for adjustments
+            raw_weights = {}
+            
+            for ticker, base_weight in self.base_weights.items():
+                weight = base_weight
                 
-            weight = base_weight
-            
-            # Trend Filter
-            # If price > 50MA -> Overweight
-            if current_prices[ticker] > current_ma[ticker]:
-                weight += self.trend_adj
-            else:
-                weight -= self.trend_adj
+                # Trend Filter
+                if current_prices.get(ticker, 0) > current_ma.get(ticker, 0):
+                    weight += self.trend_adj
+                else:
+                    weight -= self.trend_adj
+                    
+                # Relative Performance (Benchmark vs Benchmark is 0 diff, so no adj)
+                if ticker != self.benchmark_ticker:
+                    if current_3m.get(ticker, 0) > benchmark_3m:
+                        weight += self.rel_adj
+                    else:
+                        weight -= self.rel_adj
                 
-            # Relative Performance
-            if current_3m[ticker] > benchmark_3m:
-                weight += self.rel_adj
+                raw_weights[ticker] = max(0.0, weight)
+                
+            # Normalize ALL weights to sum to 1.0
+            total_raw = sum(raw_weights.values())
+            if total_raw > 0:
+                for t in raw_weights:
+                    target_weights[t] = raw_weights[t] / total_raw
             else:
-                weight -= self.rel_adj
-            
-            other_weights[ticker] = max(0.0, weight)
-            
-        # 3. Normalize others to sum to (1.0 - benchmark_weight)
-        target_other_sum = 1.0 - benchmark_weight
-        current_other_sum = sum(other_weights.values())
-        
-        if current_other_sum > 0:
-            for t in other_weights:
-                other_weights[t] = (other_weights[t] / current_other_sum) * target_other_sum
+                target_weights = self.base_weights.copy()
+                
         else:
-            # Fallback: distribute evenly or proportionally to base?
-            # Let's revert to base weights for others
-            base_other_sum = sum(self.base_weights[t] for t in other_weights)
-            if base_other_sum > 0:
+            # Strict Mode: Fix Benchmark, Adjust Others
+            benchmark_weight = self.base_weights.get(self.benchmark_ticker, 0.0)
+            other_weights = {}
+            
+            for ticker, base_weight in self.base_weights.items():
+                if ticker == self.benchmark_ticker:
+                    continue
+                    
+                weight = base_weight
+                
+                # Trend Filter
+                if current_prices.get(ticker, 0) > current_ma.get(ticker, 0):
+                    weight += self.trend_adj
+                else:
+                    weight -= self.trend_adj
+                    
+                # Relative Performance
+                if current_3m.get(ticker, 0) > benchmark_3m:
+                    weight += self.rel_adj
+                else:
+                    weight -= self.rel_adj
+                
+                other_weights[ticker] = max(0.0, weight)
+                
+            # Normalize others to sum to (1.0 - benchmark_weight)
+            target_other_sum = 1.0 - benchmark_weight
+            current_other_sum = sum(other_weights.values())
+            
+            if current_other_sum > 0:
                 for t in other_weights:
-                    other_weights[t] = (self.base_weights[t] / base_other_sum) * target_other_sum
+                    other_weights[t] = (other_weights[t] / current_other_sum) * target_other_sum
+            else:
+                # Fallback
+                base_other_sum = sum(self.base_weights[t] for t in other_weights)
+                if base_other_sum > 0:
+                    for t in other_weights:
+                        other_weights[t] = (self.base_weights[t] / base_other_sum) * target_other_sum
             
-        # 4. Combine and Round
-        final_weights = {self.benchmark_ticker: benchmark_weight}
-        
-        # Round others to nearest 5%
-        # Note: This might make the sum drift from 1.0. We need to fix it within the "others" group.
-        
-        rounded_others = {}
-        for t, w in other_weights.items():
-            rounded_others[t] = round(w / 0.05) * 0.05
+            target_weights = {self.benchmark_ticker: benchmark_weight}
+            target_weights.update(other_weights)
             
-        # Let's put them all together first
-        final_weights.update(rounded_others)
-        
+        # Rounding Logic (Common)
+        final_weights = {}
+        for t, w in target_weights.items():
+            final_weights[t] = round(w / 0.05) * 0.05
+            
         # Fix floating point
         for t in final_weights:
             final_weights[t] = round(final_weights[t], 2)
@@ -110,17 +138,22 @@ class RotationStrategy:
         diff = round(1.0 - total_sum, 2)
         
         if diff != 0:
-            # Adjust one of the OTHER assets (not benchmark)
-            candidates = list(other_weights.keys())
+            # Adjust largest holding
+            candidates = list(final_weights.keys())
+            if not self.relaxed_constraint and self.benchmark_ticker in candidates and len(candidates) > 1:
+                 # In strict mode, try not to touch benchmark if possible, but rounding might force it?
+                 # Actually, strict mode implies benchmark is fixed. 
+                 # But rounding to 5% might break the exact 40%.
+                 # Let's try to adjust non-benchmark first.
+                 candidates = [c for c in candidates if c != self.benchmark_ticker]
+            
             if candidates:
-                # Add to the largest holding among others
                 max_ticker = max(candidates, key=lambda t: final_weights[t])
                 final_weights[max_ticker] += diff
                 final_weights[max_ticker] = round(final_weights[max_ticker], 2)
-            else:
-                # If only benchmark exists (edge case), adjust benchmark
-                final_weights[self.benchmark_ticker] += diff
-                
+            elif self.benchmark_ticker in final_weights:
+                 final_weights[self.benchmark_ticker] += diff
+                 
         return final_weights, current_prices, current_ma, current_3m
 
     def run_backtest(self):

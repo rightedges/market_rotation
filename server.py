@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from auth_manager import authenticate_user, register_user
-from portfolio_manager import load_portfolio, save_portfolio
+from portfolio_manager import load_user_data, save_user_data, save_portfolio
 from strategy import RotationStrategy
 from data_loader import fetch_data
 import pandas as pd
@@ -18,21 +18,28 @@ def index():
         return redirect(url_for('login'))
     
     username = session.get('username')
-    portfolio = load_portfolio(username)
+    portfolio, config = load_user_data(username)
     
     # Calculate data for dashboard
     tickers = list(portfolio.keys())
+    
+    # Get relaxed constraint option
+    relaxed_param = request.args.get('relaxed', 'false').lower()
+    relaxed = relaxed_param == 'true'
+    
+    # Get backtest period from config
+    backtest_period = config.get('backtest_period', '5y')
     
     # Fetch data (cached)
     # Ensure VOO is included for benchmark comparison
     fetch_tickers = list(set(tickers + ['VOO']))
     
     try:
-        df_close = fetch_data(fetch_tickers, period="5y")
+        df_close = fetch_data(fetch_tickers, period=backtest_period)
         if df_close.empty:
             raise ValueError("No data")
             
-        strategy = RotationStrategy(df_close, portfolio)
+        strategy = RotationStrategy(df_close, portfolio, relaxed_constraint=relaxed)
         strategy.calculate_indicators()
         
         latest_date = df_close.index[-1]
@@ -84,8 +91,9 @@ def index():
         # Calculate Metrics
         total_return = (portfolio_series.iloc[-1] / portfolio_series.iloc[0]) - 1
         days = (portfolio_series.index[-1] - portfolio_series.index[0]).days
-        cagr = (portfolio_series.iloc[-1] / portfolio_series.iloc[0]) ** (365.0/days) - 1 if days > 0 else 0
+        cagr = (1 + total_return) ** (365 / days) - 1 if days > 0 else 0
         
+        # Max Drawdown
         rolling_max = portfolio_series.cummax()
         drawdown = (portfolio_series - rolling_max) / rolling_max
         max_drawdown = drawdown.min()
@@ -112,11 +120,13 @@ def index():
         return render_template('index.html', 
                              username=username, 
                              holdings=holdings, 
-                             chart_data=json.dumps(chart_data),
+                             chart_data=json.dumps(chart_data, allow_nan=False),
                              latest_date=latest_date.strftime('%Y-%m-%d'),
                              metrics=metrics,
                              rotation_history=rotation_history,
-                             tickers=tickers)
+                             tickers=tickers,
+                             relaxed=relaxed,
+                             backtest_period=backtest_period)
                              
     except Exception as e:
         return render_template('index.html', username=username, error=str(e))
@@ -168,6 +178,26 @@ def save_portfolio_route():
             return jsonify({"success": False, "message": "Save failed"})
     except ValueError:
         return jsonify({"success": False, "message": "Invalid number format"})
+
+@app.route('/api/update_settings', methods=['POST'])
+def update_settings():
+    if not session.get('logged_in'):
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+        
+    data = request.json
+    username = session.get('username')
+    
+    # Load current data
+    holdings, config = load_user_data(username)
+    
+    # Update config
+    if 'backtest_period' in data:
+        config['backtest_period'] = data['backtest_period']
+        
+    if save_user_data(username, holdings, config):
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False, "message": "Save failed"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8501, debug=True)
