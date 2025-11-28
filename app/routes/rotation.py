@@ -1,0 +1,183 @@
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
+from flask_login import login_required, current_user
+from app import db
+from app.models import Portfolio, Holding
+from app.services.market_data import get_historical_data
+from app.services.strategy import RotationStrategy
+import pandas as pd
+
+bp = Blueprint('rotation', __name__, url_prefix='/portfolio')
+
+@bp.route('/<int:id>/rotation')
+@login_required
+def analysis(id):
+    portfolio = Portfolio.query.get_or_404(id)
+    if portfolio.owner != current_user:
+        abort(403)
+        
+    holdings = portfolio.holdings.all()
+    if not holdings:
+        flash('Add stocks to your portfolio before running analysis.')
+        return redirect(url_for('portfolio.view', id=id))
+        
+    # Prepare data for strategy
+    tickers = [h.symbol for h in holdings]
+    
+    # Ensure VOO is in the list for benchmark
+    fetch_tickers = list(set(tickers + ['VOO']))
+    
+    # Get backtest period from query params, default to 5y
+    period = request.args.get('period', '5y')
+    if period not in ['5y', '10y', '15y', '20y']:
+        period = '5y'
+    
+    # Fetch historical data
+    # Convert list to tuple for lru_cache
+    df_close = get_historical_data(tuple(fetch_tickers), period=period)
+    
+    if df_close is None or df_close.empty:
+        flash('Failed to fetch historical data. Please try again later.')
+        return redirect(url_for('portfolio.view', id=id))
+        
+    # Current weights (from DB target_percentage or equal weight?)
+    # Strategy needs base_weights to know what to adjust.
+    # If we want to suggest new weights based on "current" state, we should use current target_percentage.
+    # If target_percentage is 0, maybe default to equal weight?
+    
+    base_weights = {}
+    total_target = sum(h.target_percentage for h in holdings)
+    
+    for h in holdings:
+        if total_target > 0:
+            base_weights[h.symbol] = h.target_percentage / 100.0
+        else:
+            base_weights[h.symbol] = 1.0 / len(holdings)
+            
+    # Initialize Strategy
+    # We can add a toggle for "relaxed" mode in the UI later, default to False (Strict)
+    relaxed = request.args.get('relaxed', 'false').lower() == 'true'
+    
+    strategy = RotationStrategy(df_close, base_weights, relaxed_constraint=relaxed)
+    strategy.calculate_indicators()
+    
+    latest_date = df_close.index[-1]
+    suggested_weights, prices, ma, ret_3m = strategy.get_signals(latest_date)
+    
+    # Prepare display data
+    analysis_data = []
+    for h in holdings:
+        t = h.symbol
+        trend = "Uptrend" if prices.get(t, 0) > ma.get(t, 0) else "Downtrend"
+        rel_perf = ret_3m.get(t, 0) - ret_3m.get('VOO', 0)
+        rel_signal = "Outperform" if rel_perf > 0 else "Underperform"
+        if t == 'VOO': rel_signal = "Benchmark"
+        
+        analysis_data.append({
+            "symbol": t,
+            "current_price": prices.get(t, 0),
+            "current_target": f"{base_weights.get(t, 0):.1%}",
+            "current_raw": base_weights.get(t, 0), # Raw float for comparison
+            "suggested_weight": f"{suggested_weights.get(t, 0):.1%}",
+            "suggested_raw": suggested_weights.get(t, 0), # For form submission
+            "trend": trend,
+            "rel_signal": rel_signal,
+            "ret_3m": f"{ret_3m.get(t, 0):.1%}"
+        })
+        
+    # Run Backtest
+    portfolio_series, weights_history = strategy.run_backtest()
+    
+    # Resample to Monthly (End of Month) to reduce noise
+    portfolio_series = portfolio_series.resample('M').last()
+    
+    # Benchmark (VOO) Series for Chart
+    benchmark_values = []
+    if 'VOO' in df_close.columns:
+        voo_prices = df_close['VOO'].resample('M').last()
+        # Align with portfolio series index
+        voo_prices = voo_prices.reindex(portfolio_series.index, method='ffill')
+        
+        # Normalize to start at 10000
+        if not voo_prices.empty and voo_prices.iloc[0] > 0:
+            voo_series = (voo_prices / voo_prices.iloc[0]) * 10000
+            voo_series = voo_series.ffill().fillna(0)
+            benchmark_values = voo_series.values.tolist()
+        
+    portfolio_series = portfolio_series.ffill().fillna(0)
+    
+    chart_data = {
+        "labels": portfolio_series.index.strftime('%Y-%m-%d').tolist(),
+        "values": portfolio_series.values.tolist(),
+        "benchmark_values": benchmark_values
+    }
+    
+    # Calculate Metrics
+    total_return = (portfolio_series.iloc[-1] / portfolio_series.iloc[0]) - 1
+    days = (portfolio_series.index[-1] - portfolio_series.index[0]).days
+    cagr = (1 + total_return) ** (365 / days) - 1 if days > 0 else 0
+    
+    # Max Drawdown
+    rolling_max = portfolio_series.cummax()
+    drawdown = (portfolio_series - rolling_max) / rolling_max
+    max_drawdown = drawdown.min()
+    
+    metrics = {
+        "total_return": f"{total_return:.1%}",
+        "cagr": f"{cagr:.1%}",
+        "max_drawdown": f"{max_drawdown:.1%}"
+    }
+    
+    # Calculate Historical Rotations
+    rotation_data = []
+    rotation_tickers = []
+    
+    if not weights_history.empty:
+        # Use weights_history directly (it already contains month-end trading dates)
+        monthly_weights = weights_history
+        rotation_tickers = sorted(monthly_weights.columns.tolist())
+        
+        # Sort by date descending
+        monthly_weights = monthly_weights.sort_index(ascending=False)
+        
+        for date, weights in monthly_weights.iterrows():
+            row = {'date': date.strftime('%Y-%m-%d')}
+            for ticker in rotation_tickers:
+                row[ticker] = weights.get(ticker, 0)
+            rotation_data.append(row)
+    
+    import json
+    return render_template('rotation/analysis.html', 
+                         portfolio=portfolio, 
+                         analysis_data=analysis_data, 
+                         latest_date=latest_date.strftime('%Y-%m-%d'),
+                         relaxed=relaxed,
+                         period=period,
+                         chart_data=json.dumps(chart_data),
+                         metrics=metrics,
+                         rotation_data=rotation_data,
+                         rotation_tickers=rotation_tickers)
+
+@bp.route('/<int:id>/apply_rotation', methods=['POST'])
+@login_required
+def apply(id):
+    portfolio = Portfolio.query.get_or_404(id)
+    if portfolio.owner != current_user:
+        abort(403)
+        
+    # Update target percentages
+    holdings = portfolio.holdings.all()
+    
+    for h in holdings:
+        # Form field name: weight_{symbol}
+        weight_str = request.form.get(f'weight_{h.symbol}')
+        if weight_str:
+            try:
+                weight = float(weight_str)
+                # Convert 0.45 to 45.0
+                h.target_percentage = weight * 100.0
+            except ValueError:
+                pass
+                
+    db.session.commit()
+    flash('Target allocation updated based on rotation analysis.')
+    return redirect(url_for('portfolio.rebalance', id=id))

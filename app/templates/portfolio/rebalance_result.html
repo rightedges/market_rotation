@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Rebalancing Plan for {{ portfolio.name }}</h2>
+    <div class="summary-card">
+        <p><strong>New Total Value (with Cash):</strong> ${{ "%.2f"|format(total_value) }}</p>
+        <p><strong>Cash Added:</strong> ${{ "%.2f"|format(cash) }}</p>
+    </div>
+
+    <div class="holdings-section">
+        <h3>Recommended Actions</h3>
+        <table class="holdings-table">
+            <thead>
+                <tr>
+                    <th>Stock</th>
+                    <th>Current Price</th>
+                    <th>Action</th>
+                    <th>Units</th>
+                    <th>Target Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for action in actions %}
+                <tr>
+                    <td>{{ action.symbol }}</td>
+                    <td>${{ "%.2f"|format(action.price) }}</td>
+                    <td>
+                        <span
+                            class="badge {% if action.action == 'Buy' %}badge-success{% else %}badge-danger{% endif %}">
+                            {{ action.action }}
+                        </span>
+                    </td>
+                    <td>{{ action.units_to_change }}</td>
+                    <td>${{ "%.2f"|format(action.target_value) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div style="margin-top: 2rem;">
+        <a href="{{ url_for('portfolio.view', id=portfolio.id) }}" class="btn-secondary">Back to Portfolio</a>
+        <a href="{{ url_for('portfolio.rebalance', id=portfolio.id) }}" class="btn-primary">Adjust Rebalance
+            Settings</a>
+    </div>
+</div>
+{% endblock %}

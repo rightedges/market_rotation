@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="header">
+    <h1>Market Rotation Analysis</h1>
+    <a href="{{ url_for('portfolio.view', id=portfolio.id) }}" class="btn btn-secondary">Back to Portfolio</a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Strategy Settings</h2>
+        <div class="actions">
+            <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if not relaxed else 'false') }}"
+                class="btn btn-small {{ 'btn-primary' if relaxed else 'btn-outline' }}">
+                {{ 'Switch to Strict Mode' if relaxed else 'Switch to Relaxed Mode' }}
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <p><strong>Mode:</strong> {{ 'Relaxed (All weights adjustable)' if relaxed else 'Strict (Benchmark fixed, others
+            adjusted)' }}</p>
+        <p><strong>Latest Data:</strong> {{ latest_date }}</p>
+    </div>
+</div>
+
+<form action="{{ url_for('rotation.apply', id=portfolio.id) }}" method="POST">
+    <div class="table-container">
+        <table class="holdings-table">
+            <thead>
+                <tr>
+                    <th>Ticker</th>
+                    <th>Price</th>
+                    <th>Trend</th>
+                    <th>3M Ret</th>
+                    <th>Rel Perf</th>
+                    <th>Target Weight</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in analysis_data %}
+                <tr>
+                    <td><strong>{{ item.symbol }}</strong></td>
+                    <td>${{ "%.2f"|format(item.current_price) }}</td>
+                    <td>
+                        <span
+                            class="badge badge-pill {{ 'trend-uptrend' if item.trend == 'Uptrend' else 'trend-downtrend' }}">
+                            {{ item.trend }}
+                        </span>
+                    </td>
+                    <td>{{ item.ret_3m }}</td>
+                    <td>
+                        <span
+                            class="badge badge-pill {{ 'perf-out' if item.rel_signal == 'Outperform' else 'perf-under' if item.rel_signal == 'Underperform' else 'perf-bench' }}">
+                            {{ item.rel_signal }}
+                        </span>
+                    </td>
+                    <td>
+                        <strong class="text-blue">{{ item.suggested_weight }}</strong>
+                        <input type="hidden" name="weight_{{ item.symbol }}" value="{{ item.suggested_raw }}">
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="form-actions" style="margin-top: 2rem; text-align: right;">
+        <button type="submit" class="btn btn-primary">Apply Suggested Targets</button>
+    </div>
+</form>
+
+<div class="dashboard-grid" style="margin-top: 2rem;">
+    <div class="chart-section" style="width: 100%; max-width: 800px; margin: 0 auto 5rem auto; max-height: 400px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3>Backtest Performance ({{ period }})</h3>
+            <div class="btn-group">
+                {% for p in ['5y', '10y', '15y', '20y'] %}
+                <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=p) }}"
+                    class="btn btn-small {{ 'btn-primary' if period == p else 'btn-outline' }}">
+                    {{ p }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="metrics-row" style="display: flex; gap: 2rem; margin-bottom: 1rem;">
+            <div class="metric">
+                <span class="label">Total Return</span>
+                <span class="value">{{ metrics.total_return }}</span>
+            </div>
+            <div class="metric">
+                <span class="label">CAGR</span>
+                <span class="value">{{ metrics.cagr }}</span>
+            </div>
+            <div class="metric">
+                <span class="label">Max Drawdown</span>
+                <span class="value">{{ metrics.max_drawdown }}</span>
+            </div>
+        </div>
+        <canvas id="backtestChart"></canvas>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 2rem;">
+    <div class="card-header">
+        <h2>Historical Rotations</h2>
+    </div>
+    <div class="card-body">
+        <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+            <table class="holdings-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        {% for ticker in rotation_tickers %}
+                        <th>{{ ticker }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rotation_data %}
+                    <tr>
+                        <td>{{ row.date }}</td>
+                        {% for ticker in rotation_tickers %}
+                        <td>{{ "%.1f%%"|format(row[ticker] * 100) }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="{{ rotation_tickers|length + 1 }}" style="text-align: center;">No historical data
+                            available.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 2rem;">
+    <div class="card-header">
+        <h2>Strategy Details</h2>
+    </div>
+    <div class="card-body">
+        <p>The Market Rotation Strategy dynamically adjusts portfolio weights based on momentum and relative strength.
+        </p>
+
+        <h3>Rules</h3>
+        <ul>
+            <li><strong>Trend Filter:</strong> If a stock's price is above its 50-day Moving Average, it is in an
+                Uptrend (+10% weight). Otherwise, it is in a Downtrend (-10% weight).</li>
+            <li><strong>Relative Strength:</strong> If a stock's 3-month return is higher than the benchmark (VOO), it
+                is Outperforming (+5% weight). Otherwise, it is Underperforming (-5% weight).</li>
+            <li><strong>Strict Mode:</strong> The benchmark (VOO) weight is fixed. Only other holdings are adjusted.
+            </li>
+            <li><strong>Relaxed Mode:</strong> All holdings, including the benchmark, are adjusted based on their
+                signals.</li>
+        </ul>
+
+        <p><em>Note: Weights are normalized to sum to 100% and rounded to the nearest 5% for easier execution.</em></p>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('backtestChart');
+    const chartData = JSON.parse('{{ chart_data | safe }}');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                {
+                    label: 'Portfolio Strategy',
+                    data: chartData.values,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.1
+                },
+                {
+                    label: 'Benchmark (VOO)',
+                    data: chartData.benchmark_values,
+                    borderColor: '#9ca3af',
+                    borderDash: [5, 5],
+                    fill: false,
+                    tension: 0.1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    ticks: {
+                        callback: function (value, index, values) {
+                            return '$' + value;
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

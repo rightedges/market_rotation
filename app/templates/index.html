@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container text-center" style="margin-top: 4rem;">
+    <h1>Welcome to Portfolio Manager</h1>
+    <p style="font-size: 1.25rem; margin-top: 1rem; color: var(--text-muted);">
+        Track your investments, visualize your allocation, and rebalance with ease.
+    </p>
+
+    {% if not current_user.is_authenticated %}
+    <div style="margin-top: 2rem;">
+        <a href="{{ url_for('auth.register') }}" class="btn-primary" style="margin-right: 1rem;">Get Started</a>
+        <a href="{{ url_for('auth.login') }}" class="btn-secondary">Login</a>
+    </div>
+    {% else %}
+    <div style="margin-top: 2rem;">
+        <a href="{{ url_for('portfolio.index') }}" class="btn-primary">Go to Dashboard</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

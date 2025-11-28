@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container" style="max-width: 800px;">
+    <h2>Rebalance {{ portfolio.name }}</h2>
+    <p>Current Total Value: ${{ "%.2f"|format(total_value) }}</p>
+    {% if total_value == 0 %}
+    <div class="alert alert-warning">
+        Warning: Total portfolio value is $0.00. Please ensure you have added stocks and they have valid prices (check
+        API key).
+    </div>
+    {% endif %}
+
+    <form method="post">
+        <div class="form-group">
+            <label for="cash">Available Cash to Invest ($)</label>
+            <input type="number" step="any" name="cash" id="cash" value="0" required>
+        </div>
+
+        <h3>Target Allocation</h3>
+        <p class="text-muted">Enter target allocation as percentage (e.g. 50 for 50%)</p>
+
+        <table class="holdings-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Current Value</th>
+                    <th>Current %</th>
+                    <th>Target Allocation (%)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in holdings %}
+                <tr>
+                    <td>{{ h.symbol }}</td>
+                    <td>${{ "%.2f"|format(h.value) }}</td>
+                    <td>
+                        {% if total_value > 0 %}
+                        {{ "%.1f"|format(h.value / total_value * 100) }}%
+                        {% else %}
+                        0%
+                        {% endif %}
+                    </td>
+                    <td>
+                        <input type="number" step="0.1" min="0" max="100" name="ratio_{{ h.symbol }}"
+                            value="{{ h.target_percentage }}" required class="form-control">
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div style="margin-top: 1rem;">
+            <button type="submit" class="btn-primary">Calculate Rebalancing</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

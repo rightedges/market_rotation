@@ -1,0 +1,449 @@
+:root {
+    --primary-color: #4f46e5;
+    /* Indigo 600 */
+    --primary-hover: #4338ca;
+    /* Indigo 700 */
+    --secondary-color: #64748b;
+    /* Slate 500 */
+    --background-color: #f1f5f9;
+    /* Slate 100 */
+    --card-bg: #ffffff;
+    --text-color: #0f172a;
+    /* Slate 900 */
+    --text-muted: #64748b;
+    /* Slate 500 */
+    --border-color: #e2e8f0;
+    /* Slate 200 */
+    --success-color: #10b981;
+    /* Emerald 500 */
+    --danger-color: #ef4444;
+    /* Red 500 */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Navigation */
+nav {
+    background-color: var(--card-bg);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-weight: 800;
+    font-size: 1.5rem;
+    text-decoration: none;
+    background: linear-gradient(135deg, var(--primary-color), #818cf8);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.025em;
+}
+
+.nav-links a {
+    margin-left: 2rem;
+    text-decoration: none;
+    color: var(--text-muted);
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.nav-links a:hover {
+    color: var(--primary-color);
+}
+
+/* Layout */
+.container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+}
+
+/* Cards */
+.auth-container,
+.portfolio-card,
+.summary-card,
+.holdings-section,
+.chart-section {
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    padding: 2rem;
+    border: 1px solid var(--border-color);
+}
+
+.auth-container {
+    max-width: 400px;
+    margin: 4rem auto;
+}
+
+/* Typography */
+h2,
+h3 {
+    margin-top: 0;
+    color: var(--text-color);
+    letter-spacing: -0.025em;
+}
+
+h2 {
+    font-size: 1.875rem;
+    margin-bottom: 1.5rem;
+}
+
+h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+p {
+    color: var(--text-muted);
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-color);
+    font-size: 0.875rem;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="number"],
+select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus,
+select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* Buttons */
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background-color: white;
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background-color: var(--background-color);
+}
+
+.btn-danger {
+    background-color: #fee2e2;
+    color: var(--danger-color);
+}
+
+.btn-danger:hover {
+    background-color: #fecaca;
+}
+
+/* Portfolio Grid */
+.portfolio-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.portfolio-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.portfolio-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.portfolio-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.portfolio-type {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background-color: #e0e7ff;
+    color: var(--primary-color);
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+.portfolio-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Tables */
+.holdings-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.holdings-table th {
+    text-align: left;
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.holdings-table td {
+    padding: 1rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-color);
+}
+
+.holdings-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Badges */
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-success {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.badge-danger {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* Utilities */
+.text-center {
+    text-align: center;
+}
+
+.text-danger {
+    color: var(--danger-color);
+    text-decoration: none;
+}
+
+.text-danger:hover {
+    text-decoration: underline;
+}
+
+.portfolio-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    background: linear-gradient(to right, #4f46e5, #818cf8);
+    padding: 2rem;
+    border-radius: 12px;
+    color: white;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-lg);
+}
+
+.portfolio-details-header h2 {
+    color: white;
+    margin-bottom: 0.5rem;
+}
+
+.portfolio-details-header p {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.25rem;
+    margin: 0;
+}
+
+.portfolio-details-header .badge {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    margin-left: 0.5rem;
+}
+
+.portfolio-details-header .actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.portfolio-details-header .btn-primary {
+    background-color: white;
+    color: var(--primary-color);
+}
+
+.portfolio-details-header .btn-secondary {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.portfolio-details-header .btn-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .nav-container {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .nav-links a {
+        margin-left: 1rem;
+        margin-right: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .portfolio-details-header {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .portfolio-details-header .actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .portfolio-details-header .actions a {
+        width: 100%;
+        text-align: center;
+    }
+
+    .container {
+        padding: 0 1rem;
+    }
+
+    .auth-container,
+    .portfolio-card,
+    .summary-card,
+    .holdings-section,
+    .chart-section {
+        padding: 1rem;
+    }
+}
+
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+}
+
+/* New UI Enhancements */
+.badge-pill {
+    border-radius: 9999px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.trend-uptrend {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.trend-downtrend {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.perf-out {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.perf-under {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.perf-bench {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.text-blue {
+    color: #2563eb;
+    font-weight: 700;
+    font-size: 1rem;
+}
