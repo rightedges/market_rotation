@@ -100,6 +100,35 @@ A multi-user stock portfolio management web application built with Python and Fl
 8.  **Access the Application:**
     Open your browser and navigate to `http://<container-ip>:8000`.
 
+9.  **Configure Systemd Service (Optional):**
+    To ensure the app starts automatically on boot, create a systemd service file.
+
+    Create the file `/etc/systemd/system/portfolio.service`:
+    ```ini
+    [Unit]
+    Description=Portfolio Manager Gunicorn Service
+    After=network.target
+
+    [Service]
+    User=root
+    WorkingDirectory=/root/portfolio-manager
+    Environment="PATH=/root/portfolio-manager/venv/bin"
+    Environment="FLASK_APP=run.py"
+    Environment="SECRET_KEY=your-secret-key"
+    ExecStart=/root/portfolio-manager/venv/bin/gunicorn -w 4 -b 0.0.0.0:8000 run:app
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+    *Note: Adjust `WorkingDirectory` and `ExecStart` if you cloned the repo elsewhere.*
+
+    Reload systemd, enable the service, and start it:
+    ```bash
+    systemctl daemon-reload
+    systemctl enable portfolio
+    systemctl start portfolio
+    ```
+
 ## Usage
 
 1.  **Register** a new account.
