@@ -9,7 +9,7 @@
 <div class="card">
     <div class="card-header">
         <h2>Strategy Settings</h2>
-        <div class="actions" style="display: flex; gap: 1rem; align-items: center;">
+        <div class="actions" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
             <div class="dropdown">
                 <button class="btn btn-outline dropdown-toggle" type="button" id="benchmarkDropdown"
                     data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -18,17 +18,42 @@
                 <div class="dropdown-menu" aria-labelledby="benchmarkDropdown">
                     {% for h in portfolio.holdings %}
                     <a class="dropdown-item"
-                        href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=period, benchmark=h.symbol) }}">
+                        href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=period, benchmark=h.symbol, benchmark_weight=benchmark_weight_input) }}">
                         {{ h.symbol }}
                     </a>
                     {% endfor %}
                 </div>
             </div>
 
-            <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if not relaxed else 'false', period=period, benchmark=benchmark_ticker) }}"
+            <form action="{{ url_for('rotation.analysis', id=portfolio.id) }}" method="get"
+                style="display: flex; gap: 0.5rem; align-items: center;">
+                <input type="hidden" name="period" value="{{ period }}">
+                <input type="hidden" name="relaxed" value="{{ 'true' if relaxed else 'false' }}">
+                <input type="hidden" name="benchmark" value="{{ benchmark_ticker }}">
+
+                <label for="benchmark_weight" style="margin: 0; white-space: nowrap;">Bench %:</label>
+                <input type="number" id="benchmark_weight" name="benchmark_weight"
+                    value="{{ benchmark_weight_input or current_bench_weight }}" min="0" max="100" step="1"
+                    style="width: 60px; padding: 0.25rem;">
+                <button type="submit" class="btn btn-small btn-outline">Set</button>
+            </form>
+
+            <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if not relaxed else 'false', period=period, benchmark=benchmark_ticker, benchmark_weight=benchmark_weight_input) }}"
                 class="btn btn-small {{ 'btn-primary' if relaxed else 'btn-outline' }}">
                 {{ 'Switch to Strict Mode' if relaxed else 'Switch to Relaxed Mode' }}
             </a>
+        </div>
+
+        <div class="period-selection" style="margin-top: 1rem; display: flex; align-items: center; gap: 1rem;">
+            <strong>Backtest Period:</strong>
+            <div class="btn-group">
+                {% for p in ['5y', '10y', '15y', '20y'] %}
+                <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=p, benchmark=benchmark_ticker, benchmark_weight=benchmark_weight_input) }}"
+                    class="btn btn-small {{ 'btn-primary' if period == p else 'btn-outline' }}">
+                    {{ p }}
+                </a>
+                {% endfor %}
+            </div>
         </div>
     </div>
     <div class="card-body">
@@ -88,14 +113,6 @@
     <div class="chart-section" style="width: 100%; max-width: 800px; margin: 0 auto 5rem auto; max-height: 400px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3>Backtest Performance ({{ period }})</h3>
-            <div class="btn-group">
-                {% for p in ['5y', '10y', '15y', '20y'] %}
-                <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=p, benchmark=benchmark_ticker) }}"
-                    class="btn btn-small {{ 'btn-primary' if period == p else 'btn-outline' }}">
-                    {{ p }}
-                </a>
-                {% endfor %}
-            </div>
         </div>
         <div class="metrics-row" style="display: flex; gap: 2rem; margin-bottom: 1rem;">
             <div class="metric">

@@ -5,6 +5,7 @@ from app.models import Portfolio, Holding
 from app.services.market_data import get_historical_data
 from app.services.strategy import RotationStrategy
 import pandas as pd
+from datetime import datetime, timedelta
 
 bp = Blueprint('rotation', __name__, url_prefix='/portfolio')
 
@@ -51,6 +52,32 @@ def analysis(id):
         flash('Failed to fetch historical data. Please try again later.')
         return redirect(url_for('portfolio.view', id=id))
         
+    # Check data sufficiency
+    # Drop rows where any ticker is NaN to find the effective start date for a full portfolio backtest
+    df_clean = df_close.dropna()
+    if not df_clean.empty:
+        actual_start = df_clean.index[0]
+        
+        # Calculate expected start
+        today = datetime.now()
+        expected_years = int(period[:-1]) # '5y' -> 5
+        expected_start = today - timedelta(days=expected_years*365)
+        
+        # Allow buffer (e.g. 90 days) for holidays/weekend differences/delayed IPOs
+        if actual_start > expected_start + timedelta(days=90):
+            # Find the culprit
+            # df_close might be a Series if only 1 ticker, convert to DF to be safe
+            if isinstance(df_close, pd.Series):
+                df_check = df_close.to_frame()
+            else:
+                df_check = df_close
+                
+            first_valid_indices = df_check.apply(lambda col: col.first_valid_index())
+            latest_start_ticker = first_valid_indices.idxmax()
+            latest_date = first_valid_indices.max()
+            
+            flash(f"Warning: Historical data is shorter than {period}. Backtest starts from {latest_date.strftime('%Y-%m-%d')} due to limited history for {latest_start_ticker}.", "warning")
+        
     # Current weights (from DB target_percentage or equal weight?)
     # Strategy needs base_weights to know what to adjust.
     # If we want to suggest new weights based on "current" state, we should use current target_percentage.
@@ -64,6 +91,33 @@ def analysis(id):
             base_weights[h.symbol] = h.target_percentage / 100.0
         else:
             base_weights[h.symbol] = 1.0 / len(holdings)
+            
+    # Check for benchmark weight override
+    benchmark_weight_input = request.args.get('benchmark_weight')
+    if benchmark_weight_input:
+        try:
+            override_weight = float(benchmark_weight_input) / 100.0
+            if 0 <= override_weight <= 1.0:
+                # Override benchmark weight
+                base_weights[benchmark_ticker] = override_weight
+                
+                # Redistribute remaining weight
+                remaining_target = 1.0 - override_weight
+                
+                # Calculate sum of other weights
+                other_tickers = [t for t in base_weights if t != benchmark_ticker]
+                current_other_sum = sum(base_weights[t] for t in other_tickers)
+                
+                if current_other_sum > 0:
+                    for t in other_tickers:
+                        base_weights[t] = (base_weights[t] / current_other_sum) * remaining_target
+                elif other_tickers:
+                     # If others sum to 0, distribute equally
+                     equal_weight = remaining_target / len(other_tickers)
+                     for t in other_tickers:
+                         base_weights[t] = equal_weight
+        except ValueError:
+            pass
             
     # Initialize Strategy
     # We can add a toggle for "relaxed" mode in the UI later, default to False (Strict)
@@ -164,6 +218,9 @@ def analysis(id):
                 row[ticker] = weights.get(ticker, 0)
             rotation_data.append(row)
     
+    # Calculate current benchmark weight for display
+    current_bench_weight = int(base_weights.get(benchmark_ticker, 0) * 100)
+    
     import json
     return render_template('rotation/analysis.html', 
                          portfolio=portfolio, 
@@ -175,7 +232,9 @@ def analysis(id):
                          chart_data=json.dumps(chart_data),
                          metrics=metrics,
                          rotation_data=rotation_data,
-                         rotation_tickers=rotation_tickers)
+                         rotation_tickers=rotation_tickers,
+                         benchmark_weight_input=benchmark_weight_input,
+                         current_bench_weight=current_bench_weight)
 
 @bp.route('/<int:id>/apply_rotation', methods=['POST'])
 @login_required
