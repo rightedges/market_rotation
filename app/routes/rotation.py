@@ -23,8 +23,20 @@ def analysis(id):
     # Prepare data for strategy
     tickers = [h.symbol for h in holdings]
     
-    # Ensure VOO is in the list for benchmark
-    fetch_tickers = list(set(tickers + ['VOO']))
+    # Get benchmark from query params
+    benchmark_ticker = request.args.get('benchmark')
+    
+    # Validate benchmark is in holdings, else default to VOO if present, else first holding
+    if benchmark_ticker not in tickers:
+        if 'VOO' in tickers:
+            benchmark_ticker = 'VOO'
+        elif tickers:
+            benchmark_ticker = tickers[0]
+        else:
+            benchmark_ticker = 'VOO' # Fallback if no holdings (though we check earlier)
+
+    # Ensure benchmark is in the list for fetching data
+    fetch_tickers = list(set(tickers + [benchmark_ticker]))
     
     # Get backtest period from query params, default to 5y
     period = request.args.get('period', '5y')
@@ -57,7 +69,7 @@ def analysis(id):
     # We can add a toggle for "relaxed" mode in the UI later, default to False (Strict)
     relaxed = request.args.get('relaxed', 'false').lower() == 'true'
     
-    strategy = RotationStrategy(df_close, base_weights, relaxed_constraint=relaxed)
+    strategy = RotationStrategy(df_close, base_weights, benchmark_ticker=benchmark_ticker, relaxed_constraint=relaxed)
     strategy.calculate_indicators()
     
     latest_date = df_close.index[-1]
@@ -68,9 +80,9 @@ def analysis(id):
     for h in holdings:
         t = h.symbol
         trend = "Uptrend" if prices.get(t, 0) > ma.get(t, 0) else "Downtrend"
-        rel_perf = ret_3m.get(t, 0) - ret_3m.get('VOO', 0)
+        rel_perf = ret_3m.get(t, 0) - ret_3m.get(benchmark_ticker, 0)
         rel_signal = "Outperform" if rel_perf > 0 else "Underperform"
-        if t == 'VOO': rel_signal = "Benchmark"
+        if t == benchmark_ticker: rel_signal = "Benchmark"
         
         analysis_data.append({
             "symbol": t,
@@ -85,30 +97,31 @@ def analysis(id):
         })
         
     # Run Backtest
-    portfolio_series, weights_history = strategy.run_backtest()
+    portfolio_series_daily, weights_history = strategy.run_backtest()
     
-    # Resample to Monthly (End of Month) to reduce noise
-    portfolio_series = portfolio_series.resample('M').last()
+    # Resample to Monthly (End of Month) to reduce noise for Chart
+    portfolio_series = portfolio_series_daily.resample('M').last()
     
-    # Benchmark (VOO) Series for Chart
+    # Benchmark Series for Chart
     benchmark_values = []
-    if 'VOO' in df_close.columns:
-        voo_prices = df_close['VOO'].resample('M').last()
+    if benchmark_ticker in df_close.columns:
+        bench_prices = df_close[benchmark_ticker].resample('M').last()
         # Align with portfolio series index
-        voo_prices = voo_prices.reindex(portfolio_series.index, method='ffill')
+        bench_prices = bench_prices.reindex(portfolio_series.index, method='ffill')
         
         # Normalize to start at 10000
-        if not voo_prices.empty and voo_prices.iloc[0] > 0:
-            voo_series = (voo_prices / voo_prices.iloc[0]) * 10000
-            voo_series = voo_series.ffill().fillna(0)
-            benchmark_values = voo_series.values.tolist()
+        if not bench_prices.empty and bench_prices.iloc[0] > 0:
+            bench_series = (bench_prices / bench_prices.iloc[0]) * 10000
+            bench_series = bench_series.ffill().fillna(0)
+            benchmark_values = bench_series.values.tolist()
         
     portfolio_series = portfolio_series.ffill().fillna(0)
     
     chart_data = {
         "labels": portfolio_series.index.strftime('%Y-%m-%d').tolist(),
         "values": portfolio_series.values.tolist(),
-        "benchmark_values": benchmark_values
+        "benchmark_values": benchmark_values,
+        "benchmark_ticker": benchmark_ticker
     }
     
     # Calculate Metrics
@@ -141,6 +154,12 @@ def analysis(id):
         
         for date, weights in monthly_weights.iterrows():
             row = {'date': date.strftime('%Y-%m-%d')}
+            # Get portfolio value for this date
+            if date in portfolio_series_daily.index:
+                row['value'] = portfolio_series_daily.loc[date]
+            else:
+                row['value'] = 0.0
+                
             for ticker in rotation_tickers:
                 row[ticker] = weights.get(ticker, 0)
             rotation_data.append(row)
@@ -152,6 +171,7 @@ def analysis(id):
                          latest_date=latest_date.strftime('%Y-%m-%d'),
                          relaxed=relaxed,
                          period=period,
+                         benchmark_ticker=benchmark_ticker,
                          chart_data=json.dumps(chart_data),
                          metrics=metrics,
                          rotation_data=rotation_data,

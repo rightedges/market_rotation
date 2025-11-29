@@ -52,7 +52,7 @@ A multi-user stock portfolio management web application built with Python and Fl
     ```bash
     python run.py
     ```
-    Access the app at `http://localhost:5000`.
+    Access the app at `http://localhost:8000`.
 
 ### Proxmox LXC Deployment
 

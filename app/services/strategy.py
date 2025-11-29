@@ -182,6 +182,9 @@ class RotationStrategy:
         start_date = daily_dates[start_idx]
         initial_weights, _, _, _ = self.get_signals(start_date)
         
+        # Record initial weights
+        weights_df.loc[start_date] = initial_weights
+        
         prices = self.data.loc[start_date]
         for t in self.tickers:
             alloc = cash * initial_weights[t]

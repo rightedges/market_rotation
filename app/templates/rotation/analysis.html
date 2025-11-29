@@ -9,8 +9,23 @@
 <div class="card">
     <div class="card-header">
         <h2>Strategy Settings</h2>
-        <div class="actions">
-            <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if not relaxed else 'false') }}"
+        <div class="actions" style="display: flex; gap: 1rem; align-items: center;">
+            <div class="dropdown">
+                <button class="btn btn-outline dropdown-toggle" type="button" id="benchmarkDropdown"
+                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    Benchmark: {{ benchmark_ticker }}
+                </button>
+                <div class="dropdown-menu" aria-labelledby="benchmarkDropdown">
+                    {% for h in portfolio.holdings %}
+                    <a class="dropdown-item"
+                        href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=period, benchmark=h.symbol) }}">
+                        {{ h.symbol }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if not relaxed else 'false', period=period, benchmark=benchmark_ticker) }}"
                 class="btn btn-small {{ 'btn-primary' if relaxed else 'btn-outline' }}">
                 {{ 'Switch to Strict Mode' if relaxed else 'Switch to Relaxed Mode' }}
             </a>
@@ -75,7 +90,7 @@
             <h3>Backtest Performance ({{ period }})</h3>
             <div class="btn-group">
                 {% for p in ['5y', '10y', '15y', '20y'] %}
-                <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=p) }}"
+                <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=p, benchmark=benchmark_ticker) }}"
                     class="btn btn-small {{ 'btn-primary' if period == p else 'btn-outline' }}">
                     {{ p }}
                 </a>
@@ -110,6 +125,7 @@
                 <thead>
                     <tr>
                         <th>Date</th>
+                        <th>Portfolio Value</th>
                         {% for ticker in rotation_tickers %}
                         <th>{{ ticker }}</th>
                         {% endfor %}
@@ -119,6 +135,7 @@
                     {% for row in rotation_data %}
                     <tr>
                         <td>{{ row.date }}</td>
+                        <td>${{ "{:,.2f}".format(row.value) }}</td>
                         {% for ticker in rotation_tickers %}
                         <td>{{ "%.1f%%"|format(row[ticker] * 100) }}</td>
                         {% endfor %}
@@ -147,9 +164,11 @@
         <ul>
             <li><strong>Trend Filter:</strong> If a stock's price is above its 50-day Moving Average, it is in an
                 Uptrend (+10% weight). Otherwise, it is in a Downtrend (-10% weight).</li>
-            <li><strong>Relative Strength:</strong> If a stock's 3-month return is higher than the benchmark (VOO), it
+            <li><strong>Relative Strength:</strong> If a stock's 3-month return is higher than the benchmark ({{
+                benchmark_ticker }}), it
                 is Outperforming (+5% weight). Otherwise, it is Underperforming (-5% weight).</li>
-            <li><strong>Strict Mode:</strong> The benchmark (VOO) weight is fixed. Only other holdings are adjusted.
+            <li><strong>Strict Mode:</strong> The benchmark ({{ benchmark_ticker }}) weight is fixed. Only other
+                holdings are adjusted.
             </li>
             <li><strong>Relaxed Mode:</strong> All holdings, including the benchmark, are adjusted based on their
                 signals.</li>
@@ -178,7 +197,7 @@
                     tension: 0.1
                 },
                 {
-                    label: 'Benchmark (VOO)',
+                    label: `Benchmark (${chartData.benchmark_ticker || 'VOO'})`,
                     data: chartData.benchmark_values,
                     borderColor: '#9ca3af',
                     borderDash: [5, 5],
