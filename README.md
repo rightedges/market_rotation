@@ -164,7 +164,9 @@ To upgrade the application to the latest version without losing your data:
 
 1.  **Register** a new account.
 2.  **Enter your Twelve Data API Key** (can be added during registration or later).
-3.  **Create a Portfolio** (e.g., "Retirement").
+3.  **Create a Portfolio**:
+    -   Click **Create New Portfolio** to start from scratch.
+    -   Or click **Create Example Portfolio** to generate a test portfolio with pre-populated holdings (VOO, QQQ, BRK-B, SPMO) to explore the features instantly.
 4.  **Add Stocks**: Enter the symbol (e.g., AAPL) and number of units.
 5.  **Rebalance**:
     -   Go to the portfolio view.

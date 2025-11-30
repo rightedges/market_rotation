@@ -25,6 +25,29 @@ def create():
         return redirect(url_for('portfolio.index'))
     return render_template('portfolio/create.html')
 
+@bp.route('/create_example')
+@login_required
+def create_example():
+    # Create example portfolio
+    portfolio = Portfolio(name='Example Portfolio (Test)', type='RRSP', owner=current_user)
+    db.session.add(portfolio)
+    
+    # Add holdings (25% each)
+    holdings_data = [
+        ('VOO', 10, 25.0),
+        ('QQQ', 10, 25.0),
+        ('BRK-B', 10, 25.0),
+        ('SPMO', 10, 25.0)
+    ]
+    
+    for symbol, units, target in holdings_data:
+        holding = Holding(symbol=symbol, units=units, target_percentage=target, portfolio=portfolio)
+        db.session.add(holding)
+        
+    db.session.commit()
+    flash('Example portfolio created! Feel free to test the features and delete it later.')
+    return redirect(url_for('portfolio.index'))
+
 @bp.route('/<int:id>')
 @login_required
 def view(id):
