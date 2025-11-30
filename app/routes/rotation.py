@@ -24,11 +24,19 @@ def analysis(id):
     # Prepare data for strategy
     tickers = [h.symbol for h in holdings]
     
-    # Get benchmark from query params
-    benchmark_ticker = request.args.get('benchmark')
-    
+    # Get benchmark from query params or DB
+    benchmark_input = request.args.get('benchmark')
+    if benchmark_input:
+        portfolio.analysis_benchmark_ticker = benchmark_input
+        db.session.commit()
+        benchmark_ticker = benchmark_input
+    elif portfolio.analysis_benchmark_ticker:
+        benchmark_ticker = portfolio.analysis_benchmark_ticker
+    else:
+        benchmark_ticker = None
+
     # Validate benchmark is in holdings, else default to VOO if present, else first holding
-    if benchmark_ticker not in tickers:
+    if not benchmark_ticker or benchmark_ticker not in tickers:
         if 'VOO' in tickers:
             benchmark_ticker = 'VOO'
         elif tickers:
@@ -131,8 +139,16 @@ def analysis(id):
                  base_weights[t] = equal_weight
             
     # Initialize Strategy
-    # We can add a toggle for "relaxed" mode in the UI later, default to False (Strict)
-    relaxed = request.args.get('relaxed', 'false').lower() == 'true'
+    # Check for relaxed mode input or load from DB
+    relaxed_input = request.args.get('relaxed')
+    if relaxed_input is not None:
+        relaxed = relaxed_input.lower() == 'true'
+        portfolio.analysis_relaxed_mode = relaxed
+        db.session.commit()
+    elif portfolio.analysis_relaxed_mode is not None:
+        relaxed = portfolio.analysis_relaxed_mode
+    else:
+        relaxed = False
     
     strategy = RotationStrategy(df_close, base_weights, benchmark_ticker=benchmark_ticker, relaxed_constraint=relaxed)
     strategy.calculate_indicators()
@@ -232,6 +248,10 @@ def analysis(id):
     # Calculate current benchmark weight for display
     current_bench_weight = int(base_weights.get(benchmark_ticker, 0) * 100)
     
+    # Available benchmarks for dropdown
+    # Only include portfolio holdings as requested
+    available_benchmarks = sorted(tickers)
+    
     import json
     return render_template('rotation/analysis.html', 
                          portfolio=portfolio, 
@@ -245,7 +265,8 @@ def analysis(id):
                          rotation_data=rotation_data,
                          rotation_tickers=rotation_tickers,
                          benchmark_weight_input=benchmark_weight_input,
-                         current_bench_weight=current_bench_weight)
+                         current_bench_weight=current_bench_weight,
+                         available_benchmarks=available_benchmarks)
 
 @bp.route('/<int:id>/apply_rotation', methods=['POST'])
 @login_required

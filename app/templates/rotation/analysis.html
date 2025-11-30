@@ -6,60 +6,75 @@
     <a href="{{ url_for('portfolio.view', id=portfolio.id) }}" class="btn btn-secondary">Back to Portfolio</a>
 </div>
 
-<div class="card">
-    <div class="card-header">
+<div class="settings-card">
+    <div class="settings-header">
         <h2>Strategy Settings</h2>
-        <div class="actions" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-            <div class="dropdown">
-                <button class="btn btn-outline dropdown-toggle" type="button" id="benchmarkDropdown"
-                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    Benchmark: {{ benchmark_ticker }}
+        <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if not relaxed else 'false', period=period, benchmark=benchmark_ticker, benchmark_weight=benchmark_weight_input) }}"
+            class="toggle-switch">
+            <span class="badge badge-pill {{ 'badge-success' if relaxed else 'badge-secondary' }}"
+                style="background-color: {{ '#d1fae5' if relaxed else '#e2e8f0' }}; color: {{ '#065f46' if relaxed else '#64748b' }};">
+                {{ 'Relaxed Mode' if relaxed else 'Strict Mode' }}
+            </span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">
+                {{ '(All weights adjustable)' if relaxed else '(Benchmark fixed)' }}
+            </span>
+        </a>
+    </div>
+
+    <div class="settings-grid">
+        <!-- Benchmark Selection -->
+        <div class="control-group">
+            <label>Benchmark Asset</label>
+            <div class="dropdown" style="width: 100%;">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="benchmarkDropdown"
+                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                    style="width: 100%; justify-content: space-between;">
+                    {{ benchmark_ticker }}
+                    <span style="margin-left: 0.5rem;">▼</span>
                 </button>
-                <div class="dropdown-menu" aria-labelledby="benchmarkDropdown">
-                    {% for h in portfolio.holdings %}
+                <div class="dropdown-menu" aria-labelledby="benchmarkDropdown" style="width: 100%;">
+                    {% for h in available_benchmarks %}
                     <a class="dropdown-item"
-                        href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=period, benchmark=h.symbol, benchmark_weight=benchmark_weight_input) }}">
-                        {{ h.symbol }}
+                        href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=period, benchmark=h, benchmark_weight=benchmark_weight_input) }}">
+                        {{ h }}
                     </a>
                     {% endfor %}
                 </div>
             </div>
+        </div>
 
-            <form action="{{ url_for('rotation.analysis', id=portfolio.id) }}" method="get"
-                style="display: flex; gap: 0.5rem; align-items: center;">
+        <!-- Benchmark Weight -->
+        <div class="control-group">
+            <label>Benchmark Allocation</label>
+            <form action="{{ url_for('rotation.analysis', id=portfolio.id) }}" method="get" class="input-group">
                 <input type="hidden" name="period" value="{{ period }}">
                 <input type="hidden" name="relaxed" value="{{ 'true' if relaxed else 'false' }}">
                 <input type="hidden" name="benchmark" value="{{ benchmark_ticker }}">
 
-                <label for="benchmark_weight" style="margin: 0; white-space: nowrap;">Bench %:</label>
-                <input type="number" id="benchmark_weight" name="benchmark_weight"
+                <input type="number" name="benchmark_weight"
                     value="{{ benchmark_weight_input or current_bench_weight }}" min="0" max="100" step="1"
-                    style="width: 60px; padding: 0.25rem;">
-                <button type="submit" class="btn btn-small btn-outline">Set</button>
+                    class="form-control" style="width: 80px;">
+                <button type="submit" class="btn btn-secondary">Set %</button>
             </form>
-
-            <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if not relaxed else 'false', period=period, benchmark=benchmark_ticker, benchmark_weight=benchmark_weight_input) }}"
-                class="btn btn-small {{ 'btn-primary' if relaxed else 'btn-outline' }}">
-                {{ 'Switch to Strict Mode' if relaxed else 'Switch to Relaxed Mode' }}
-            </a>
         </div>
 
-        <div class="period-selection" style="margin-top: 1rem; display: flex; align-items: center; gap: 1rem;">
-            <strong>Backtest Period:</strong>
-            <div class="btn-group">
+        <!-- Backtest Period -->
+        <div class="control-group">
+            <label>Backtest History</label>
+            <div class="segmented-control">
                 {% for p in ['5y', '10y', '15y', '20y'] %}
                 <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=p, benchmark=benchmark_ticker, benchmark_weight=benchmark_weight_input) }}"
-                    class="btn btn-small {{ 'btn-primary' if period == p else 'btn-outline' }}">
+                    class="btn {{ 'active' if period == p else '' }}">
                     {{ p }}
                 </a>
                 {% endfor %}
             </div>
         </div>
     </div>
-    <div class="card-body">
-        <p><strong>Mode:</strong> {{ 'Relaxed (All weights adjustable)' if relaxed else 'Strict (Benchmark fixed, others
-            adjusted)' }}</p>
-        <p><strong>Latest Data:</strong> {{ latest_date }}</p>
+
+    <div
+        style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color); font-size: 0.875rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+        <span>Latest Data: {{ latest_date }}</span>
     </div>
 </div>
 
@@ -259,6 +274,33 @@
                 }
             }
         }
+    });
+
+    // Custom Dropdown Logic
+    document.addEventListener('DOMContentLoaded', function () {
+        const dropdowns = document.querySelectorAll('.dropdown');
+
+        dropdowns.forEach(dropdown => {
+            const toggle = dropdown.querySelector('.dropdown-toggle');
+            const menu = dropdown.querySelector('.dropdown-menu');
+
+            if (toggle && menu) {
+                toggle.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    menu.classList.toggle('show');
+                });
+            }
+        });
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function (e) {
+            dropdowns.forEach(dropdown => {
+                const menu = dropdown.querySelector('.dropdown-menu');
+                if (menu && menu.classList.contains('show')) {
+                    menu.classList.remove('show');
+                }
+            });
+        });
     });
 </script>
 {% endblock %}

@@ -25,6 +25,28 @@ def migrate():
             print(f"Migration failed: {e}")
     else:
         print("Column 'analysis_benchmark_weight' already exists.")
+
+    if 'analysis_benchmark_ticker' not in columns:
+        print("Adding 'analysis_benchmark_ticker' column to 'portfolio' table...")
+        try:
+            cursor.execute("ALTER TABLE portfolio ADD COLUMN analysis_benchmark_ticker VARCHAR(10)")
+            conn.commit()
+            print("Migration successful.")
+        except Exception as e:
+            print(f"Migration failed: {e}")
+    else:
+        print("Column 'analysis_benchmark_ticker' already exists.")
+
+    if 'analysis_relaxed_mode' not in columns:
+        print("Adding 'analysis_relaxed_mode' column to 'portfolio' table...")
+        try:
+            cursor.execute("ALTER TABLE portfolio ADD COLUMN analysis_relaxed_mode BOOLEAN DEFAULT 0")
+            conn.commit()
+            print("Migration successful.")
+        except Exception as e:
+            print(f"Migration failed: {e}")
+    else:
+        print("Column 'analysis_relaxed_mode' already exists.")
         
     conn.close()
 

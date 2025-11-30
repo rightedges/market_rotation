@@ -21,6 +21,8 @@ class Portfolio(db.Model):
     type = db.Column(db.String(64)) # e.g., RRSP, TFSA
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     analysis_benchmark_weight = db.Column(db.Float) # Persisted benchmark weight for analysis
+    analysis_benchmark_ticker = db.Column(db.String(10)) # Persisted benchmark ticker
+    analysis_relaxed_mode = db.Column(db.Boolean, default=False) # Persisted relaxed mode setting
     holdings = db.relationship('Holding', backref='portfolio', lazy='dynamic', cascade="all, delete-orphan")
 
 class Holding(db.Model):
