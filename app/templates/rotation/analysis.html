@@ -9,7 +9,7 @@
 <div class="settings-card">
     <div class="settings-header">
         <h2>Strategy Settings</h2>
-        <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if not relaxed else 'false', period=period, benchmark=benchmark_ticker, benchmark_weight=benchmark_weight_input) }}"
+        <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if not relaxed else 'false', period=period, benchmark=benchmark_ticker, benchmark_weight=benchmark_weight_input, trend_weight=trend_weight, rel_weight=rel_weight) }}"
             class="toggle-switch">
             <span class="badge badge-pill {{ 'badge-success' if relaxed else 'badge-secondary' }}"
                 style="background-color: {{ '#d1fae5' if relaxed else '#e2e8f0' }}; color: {{ '#065f46' if relaxed else '#64748b' }};">
@@ -35,7 +35,7 @@
                 <div class="dropdown-menu" aria-labelledby="benchmarkDropdown" style="width: 100%;">
                     {% for h in available_benchmarks %}
                     <a class="dropdown-item"
-                        href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=period, benchmark=h, benchmark_weight=benchmark_weight_input) }}">
+                        href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=period, benchmark=h, benchmark_weight=benchmark_weight_input, trend_weight=trend_weight, rel_weight=rel_weight) }}">
                         {{ h }}
                     </a>
                     {% endfor %}
@@ -50,6 +50,8 @@
                 <input type="hidden" name="period" value="{{ period }}">
                 <input type="hidden" name="relaxed" value="{{ 'true' if relaxed else 'false' }}">
                 <input type="hidden" name="benchmark" value="{{ benchmark_ticker }}">
+                <input type="hidden" name="trend_weight" value="{{ trend_weight }}">
+                <input type="hidden" name="rel_weight" value="{{ rel_weight }}">
 
                 <input type="number" name="benchmark_weight"
                     value="{{ benchmark_weight_input or current_bench_weight }}" min="0" max="100" step="1"
@@ -58,12 +60,41 @@
             </form>
         </div>
 
+        <!-- Strategy Weights -->
+        <div class="control-group">
+            <label>Strategy Weights</label>
+            <form action="{{ url_for('rotation.analysis', id=portfolio.id) }}" method="get" class="input-group"
+                style="gap: 0.5rem;">
+                <input type="hidden" name="period" value="{{ period }}">
+                <input type="hidden" name="relaxed" value="{{ 'true' if relaxed else 'false' }}">
+                <input type="hidden" name="benchmark" value="{{ benchmark_ticker }}">
+                <input type="hidden" name="benchmark_weight"
+                    value="{{ benchmark_weight_input or current_bench_weight }}">
+
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <label style="font-size: 0.7rem; margin: 0;">Trend</label>
+                    <input type="number" name="trend_weight" value="{{ trend_weight }}" min="0" max="50" step="1"
+                        class="form-control" style="width: 60px;" title="Trend Weight %">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <label style="font-size: 0.7rem; margin: 0;">Rel Str</label>
+                    <input type="number" name="rel_weight" value="{{ rel_weight }}" min="0" max="50" step="1"
+                        class="form-control" style="width: 60px;" title="Relative Strength Weight %">
+                </div>
+
+                <div style="display: flex; align-items: flex-end;">
+                    <button type="submit" class="btn btn-secondary">Set</button>
+                </div>
+            </form>
+        </div>
+
         <!-- Backtest Period -->
         <div class="control-group">
             <label>Backtest History</label>
             <div class="segmented-control">
                 {% for p in ['5y', '10y', '15y', '20y'] %}
-                <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=p, benchmark=benchmark_ticker, benchmark_weight=benchmark_weight_input) }}"
+                <a href="{{ url_for('rotation.analysis', id=portfolio.id, relaxed='true' if relaxed else 'false', period=p, benchmark=benchmark_ticker, benchmark_weight=benchmark_weight_input, trend_weight=trend_weight, rel_weight=rel_weight) }}"
                     class="btn {{ 'active' if period == p else '' }}">
                     {{ p }}
                 </a>
@@ -195,10 +226,12 @@
         <h3>Rules</h3>
         <ul>
             <li><strong>Trend Filter:</strong> If a stock's price is above its 50-day Moving Average, it is in an
-                Uptrend (+10% weight). Otherwise, it is in a Downtrend (-10% weight).</li>
+                Uptrend (+{{ trend_weight }}% weight). Otherwise, it is in a Downtrend (-{{ trend_weight }}% weight).
+            </li>
             <li><strong>Relative Strength:</strong> If a stock's 3-month return is higher than the benchmark ({{
                 benchmark_ticker }}), it
-                is Outperforming (+5% weight). Otherwise, it is Underperforming (-5% weight).</li>
+                is Outperforming (+{{ rel_weight }}% weight). Otherwise, it is Underperforming (-{{ rel_weight }}%
+                weight).</li>
             <li><strong>Strict Mode:</strong> The benchmark ({{ benchmark_ticker }}) weight is fixed. Only other
                 holdings are adjusted.
             </li>

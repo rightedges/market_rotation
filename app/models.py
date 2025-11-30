@@ -23,6 +23,8 @@ class Portfolio(db.Model):
     analysis_benchmark_weight = db.Column(db.Float) # Persisted benchmark weight for analysis
     analysis_benchmark_ticker = db.Column(db.String(10)) # Persisted benchmark ticker
     analysis_relaxed_mode = db.Column(db.Boolean, default=False) # Persisted relaxed mode setting
+    analysis_trend_weight = db.Column(db.Float, default=0.10) # Persisted trend weight
+    analysis_relative_strength_weight = db.Column(db.Float, default=0.05) # Persisted relative strength weight
     holdings = db.relationship('Holding', backref='portfolio', lazy='dynamic', cascade="all, delete-orphan")
 
 class Holding(db.Model):

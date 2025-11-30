@@ -149,8 +149,32 @@ def analysis(id):
         relaxed = portfolio.analysis_relaxed_mode
     else:
         relaxed = False
+
+    # Check for trend weight input or load from DB
+    trend_weight_input = request.args.get('trend_weight')
+    if trend_weight_input:
+        try:
+            trend_weight = float(trend_weight_input) / 100.0
+            portfolio.analysis_trend_weight = trend_weight
+            db.session.commit()
+        except ValueError:
+            trend_weight = portfolio.analysis_trend_weight or 0.10
+    else:
+        trend_weight = portfolio.analysis_trend_weight or 0.10
+
+    # Check for relative strength weight input or load from DB
+    rel_weight_input = request.args.get('rel_weight')
+    if rel_weight_input:
+        try:
+            rel_weight = float(rel_weight_input) / 100.0
+            portfolio.analysis_relative_strength_weight = rel_weight
+            db.session.commit()
+        except ValueError:
+            rel_weight = portfolio.analysis_relative_strength_weight or 0.05
+    else:
+        rel_weight = portfolio.analysis_relative_strength_weight or 0.05
     
-    strategy = RotationStrategy(df_close, base_weights, benchmark_ticker=benchmark_ticker, relaxed_constraint=relaxed)
+    strategy = RotationStrategy(df_close, base_weights, trend_adj=trend_weight, rel_adj=rel_weight, benchmark_ticker=benchmark_ticker, relaxed_constraint=relaxed)
     strategy.calculate_indicators()
     
     latest_date = df_close.index[-1]
@@ -266,7 +290,9 @@ def analysis(id):
                          rotation_tickers=rotation_tickers,
                          benchmark_weight_input=benchmark_weight_input,
                          current_bench_weight=current_bench_weight,
-                         available_benchmarks=available_benchmarks)
+                         available_benchmarks=available_benchmarks,
+                         trend_weight=int(trend_weight * 100),
+                         rel_weight=int(rel_weight * 100))
 
 @bp.route('/<int:id>/apply_rotation', methods=['POST'])
 @login_required
