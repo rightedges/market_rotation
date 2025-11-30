@@ -13,7 +13,7 @@ A multi-user stock portfolio management web application built with Python and Fl
         -   **Trend Filter**: Adjust weights based on 50-day Moving Average (Customizable weight).
         -   **Relative Strength**: Adjust weights based on 3-month performance vs benchmark (Customizable weight).
         -   **Backtesting**: View historical performance of the strategy vs benchmark.
-    -   **Premium UI**: Modern, responsive design with a clean interface.
+-   **Premium UI**: Modern, responsive design with a clean interface.
 
 ## Prerequisites
 
@@ -149,12 +149,12 @@ To upgrade the application to the latest version without losing your data:
     ```
 
 3.  **Migrate the database:**
-    If new features require database changes (like the benchmark weight persistence or custom strategy weights), run the migration scripts:
+    If new features require database changes (like the benchmark weight persistence), run the migration script:
     ```bash
     python migrate_db.py
     python migrate_weights.py
     ```
-    *Note: These scripts check for missing columns and add them safely.*
+    *Note: This script checks for missing columns and adds them safely.*
 
 4.  **Restart the application:**
     ```bash
