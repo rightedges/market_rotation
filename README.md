@@ -129,6 +129,37 @@ A multi-user stock portfolio management web application built with Python and Fl
     systemctl start portfolio
     ```
 
+## Upgrading
+
+To upgrade the application to the latest version without losing your data:
+
+1.  **Pull the latest changes:**
+    ```bash
+    git pull origin portfolioapp
+    ```
+
+2.  **Update dependencies:**
+    ```bash
+    source venv/bin/activate
+    pip install -r requirements.txt
+    ```
+
+3.  **Migrate the database:**
+    If new features require database changes (like the benchmark weight persistence), run the migration script:
+    ```bash
+    python migrate_db.py
+    ```
+    *Note: This script checks for missing columns and adds them safely.*
+
+4.  **Restart the application:**
+    ```bash
+    # If running locally
+    python run.py
+
+    # If running as a service
+    systemctl restart portfolio
+    ```
+
 ## Usage
 
 1.  **Register** a new account.

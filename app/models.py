@@ -20,6 +20,7 @@ class Portfolio(db.Model):
     name = db.Column(db.String(64), nullable=False)
     type = db.Column(db.String(64)) # e.g., RRSP, TFSA
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    analysis_benchmark_weight = db.Column(db.Float) # Persisted benchmark weight for analysis
     holdings = db.relationship('Holding', backref='portfolio', lazy='dynamic', cascade="all, delete-orphan")
 
 class Holding(db.Model):

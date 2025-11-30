@@ -94,30 +94,41 @@ def analysis(id):
             
     # Check for benchmark weight override
     benchmark_weight_input = request.args.get('benchmark_weight')
+    
     if benchmark_weight_input:
         try:
             override_weight = float(benchmark_weight_input) / 100.0
             if 0 <= override_weight <= 1.0:
+                # Save to DB
+                portfolio.analysis_benchmark_weight = override_weight
+                db.session.commit()
+                
                 # Override benchmark weight
                 base_weights[benchmark_ticker] = override_weight
-                
-                # Redistribute remaining weight
-                remaining_target = 1.0 - override_weight
-                
-                # Calculate sum of other weights
-                other_tickers = [t for t in base_weights if t != benchmark_ticker]
-                current_other_sum = sum(base_weights[t] for t in other_tickers)
-                
-                if current_other_sum > 0:
-                    for t in other_tickers:
-                        base_weights[t] = (base_weights[t] / current_other_sum) * remaining_target
-                elif other_tickers:
-                     # If others sum to 0, distribute equally
-                     equal_weight = remaining_target / len(other_tickers)
-                     for t in other_tickers:
-                         base_weights[t] = equal_weight
         except ValueError:
             pass
+    elif portfolio.analysis_benchmark_weight is not None:
+        # Load from DB if not provided in args
+        override_weight = portfolio.analysis_benchmark_weight
+        base_weights[benchmark_ticker] = override_weight
+        
+    # If we have an override (either from args or DB), redistribute remaining
+    if benchmark_weight_input or portfolio.analysis_benchmark_weight is not None:
+        override_weight = base_weights[benchmark_ticker]
+        remaining_target = 1.0 - override_weight
+        
+        # Calculate sum of other weights
+        other_tickers = [t for t in base_weights if t != benchmark_ticker]
+        current_other_sum = sum(base_weights[t] for t in other_tickers)
+        
+        if current_other_sum > 0:
+            for t in other_tickers:
+                base_weights[t] = (base_weights[t] / current_other_sum) * remaining_target
+        elif other_tickers:
+             # If others sum to 0, distribute equally
+             equal_weight = remaining_target / len(other_tickers)
+             for t in other_tickers:
+                 base_weights[t] = equal_weight
             
     # Initialize Strategy
     # We can add a toggle for "relaxed" mode in the UI later, default to False (Strict)
