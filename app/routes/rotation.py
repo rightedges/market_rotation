@@ -91,14 +91,13 @@ def analysis(id):
     # If we want to suggest new weights based on "current" state, we should use current target_percentage.
     # If target_percentage is 0, maybe default to equal weight?
     
+    # Always use Equal Weights for analysis to be independent of portfolio's current allocation
+    # This ensures consistent results for the same set of stocks.
     base_weights = {}
-    total_target = sum(h.target_percentage for h in holdings)
-    
-    for h in holdings:
-        if total_target > 0:
-            base_weights[h.symbol] = h.target_percentage / 100.0
-        else:
-            base_weights[h.symbol] = 1.0 / len(holdings)
+    if holdings:
+        equal_weight = 1.0 / len(holdings)
+        for h in holdings:
+            base_weights[h.symbol] = equal_weight
             
     # Check for benchmark weight override
     benchmark_weight_input = request.args.get('benchmark_weight')
