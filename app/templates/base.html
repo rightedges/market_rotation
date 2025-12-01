@@ -17,6 +17,8 @@
                 {% if current_user.is_authenticated %}
                 <a href="{{ url_for('portfolio.index') }}">My Portfolios</a>
                 <span style="margin-left: 1.5rem; color: var(--text-muted);">{{ current_user.username }}</span>
+                <a href="{{ url_for('auth.change_password') }}" style="font-size: 0.9em; margin-left: 0.5rem;">Change
+                    Password</a>
                 <a href="{{ url_for('auth.logout') }}">Logout</a>
                 {% else %}
                 <a href="{{ url_for('auth.login') }}">Login</a>

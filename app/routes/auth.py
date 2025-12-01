@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_user, logout_user, current_user
+from flask_login import login_user, logout_user, current_user, login_required
 from app import db
 from app.models import User
 
@@ -12,13 +12,11 @@ def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        api_key = request.form.get('api_key')
-        
         if User.query.filter_by(username=username).first():
             flash('Username already exists')
             return redirect(url_for('auth.register'))
         
-        user = User(username=username, api_key=api_key)
+        user = User(username=username)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -43,3 +41,26 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('main.index'))
+
+@bp.route('/change_password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        current_password = request.form['current_password']
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        
+        if not current_user.check_password(current_password):
+            flash('Incorrect current password')
+            return redirect(url_for('auth.change_password'))
+            
+        if new_password != confirm_password:
+            flash('New passwords do not match')
+            return redirect(url_for('auth.change_password'))
+            
+        current_user.set_password(new_password)
+        db.session.commit()
+        flash('Your password has been updated.')
+        return redirect(url_for('main.index'))
+        
+    return render_template('auth/change_password.html')

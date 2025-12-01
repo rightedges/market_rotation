@@ -6,7 +6,7 @@ A multi-user stock portfolio management web application built with Python and Fl
 
 -   **Multi-User Support**: Secure registration and login for multiple users.
 -   **Multiple Portfolios**: Manage separate portfolios (e.g., RRSP, TFSA, Non-Registered).
--   **Real-Time Data**: Fetches live stock prices using the [Twelve Data API](https://twelvedata.com/).
+-   **Real-Time Data**: Fetches live stock prices using Yahoo Finance.
 -   **Portfolio Visualization**: Interactive doughnut charts showing current allocation.
 -   **Smart Rebalancing**: Calculate exact buy/sell units based on target percentages and available cash.
     -   **Market Rotation Analysis**: Analyze your portfolio with a momentum-based rotation strategy.
@@ -18,7 +18,7 @@ A multi-user stock portfolio management web application built with Python and Fl
 ## Prerequisites
 
 -   Python 3.8+
--   A [Twelve Data](https://twelvedata.com/) API Key (Free tier available).
+
 
 ## Installation
 
@@ -168,7 +168,7 @@ To upgrade the application to the latest version without losing your data:
 ## Usage
 
 1.  **Register** a new account.
-2.  **Enter your Twelve Data API Key** (can be added during registration or later).
+
 3.  **Create a Portfolio**:
     -   Click **Create New Portfolio** to start from scratch.
     -   Or click **Create Example Portfolio** to generate a test portfolio with pre-populated holdings (VOO, QQQ, BRK-B, SPMO) to explore the features instantly.
@@ -184,4 +184,4 @@ To upgrade the application to the latest version without losing your data:
 
 -   **Backend**: Flask, SQLAlchemy (SQLite)
 -   **Frontend**: HTML5, Vanilla CSS, Chart.js
--   **API**: Twelve Data
+-   **API**: Yahoo Finance

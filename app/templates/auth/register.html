@@ -12,11 +12,7 @@
             <label for="password">Password</label>
             <input type="password" name="password" id="password" required>
         </div>
-        <div class="form-group">
-            <label for="api_key">Twelve Data API Key (Optional)</label>
-            <input type="text" name="api_key" id="api_key" placeholder="Enter your API key">
-            <small>You can add this later.</small>
-        </div>
+
         <button type="submit" class="btn-primary">Register</button>
     </form>
     <p>Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a></p>
