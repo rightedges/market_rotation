@@ -145,7 +145,10 @@ class RotationStrategy:
                  candidates = [c for c in candidates if c != self.benchmark_ticker]
             
             if candidates:
-                max_ticker = max(candidates, key=lambda t: final_weights[t])
+                # Use (weight, ticker) tuple for deterministic tie-breaking
+                # This ensures that if weights are equal, the result depends on ticker string (alphabetical)
+                # rather than dictionary iteration order.
+                max_ticker = max(candidates, key=lambda t: (final_weights[t], t))
                 final_weights[max_ticker] += diff
                 final_weights[max_ticker] = round(final_weights[max_ticker], 2)
             elif self.benchmark_ticker in final_weights:
