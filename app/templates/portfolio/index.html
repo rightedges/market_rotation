@@ -16,6 +16,8 @@
         <p class="portfolio-type">{{ portfolio.type }}</p>
         <div class="portfolio-actions">
             <a href="{{ url_for('portfolio.view', id=portfolio.id) }}" class="btn-secondary">View</a>
+            <a href="{{ url_for('portfolio.rename', id=portfolio.id) }}" class="btn-secondary">Rename</a>
+            <a href="{{ url_for('portfolio.duplicate', id=portfolio.id) }}" class="btn-secondary">Duplicate</a>
             <a href="{{ url_for('portfolio.delete', id=portfolio.id) }}" class="btn-danger"
                 onclick="return confirm('Are you sure?')">Delete</a>
         </div>

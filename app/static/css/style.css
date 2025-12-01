@@ -238,6 +238,7 @@ select:focus {
     display: flex;
     gap: 0.5rem;
     margin-top: 1rem;
+    flex-wrap: wrap;
 }
 
 /* Dashboard Grid */

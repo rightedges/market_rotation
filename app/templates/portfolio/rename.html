@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container">
+    <h2>Rename Portfolio</h2>
+    <form method="post">
+        <div class="form-group">
+            <label for="name">Portfolio Name</label>
+            <input type="text" name="name" id="name" value="{{ portfolio.name }}" required>
+        </div>
+        <div class="form-group">
+            <label for="type">Account Type</label>
+            <select name="type" id="type" required>
+                <option value="RRSP" {% if portfolio.type=='RRSP' %}selected{% endif %}>RRSP</option>
+                <option value="TFSA" {% if portfolio.type=='TFSA' %}selected{% endif %}>TFSA</option>
+                <option value="Non-Registered" {% if portfolio.type=='Non-Registered' %}selected{% endif %}>
+                    Non-Registered</option>
+                <option value="Margin" {% if portfolio.type=='Margin' %}selected{% endif %}>Margin</option>
+                <option value="LIRA" {% if portfolio.type=='LIRA' %}selected{% endif %}>LIRA</option>
+                <option value="Other" {% if portfolio.type=='Other' %}selected{% endif %}>Other</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <button type="submit" class="btn-primary">Save Changes</button>
+            <a href="{{ url_for('portfolio.index') }}" class="btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

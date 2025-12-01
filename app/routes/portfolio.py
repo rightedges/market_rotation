@@ -12,12 +12,23 @@ def index():
     portfolios = current_user.portfolios.all()
     return render_template('portfolio/index.html', portfolios=portfolios)
 
+def check_portfolio_exists(name, type, user_id, exclude_id=None):
+    query = Portfolio.query.filter_by(name=name, type=type, user_id=user_id)
+    if exclude_id:
+        query = query.filter(Portfolio.id != exclude_id)
+    return query.first() is not None
+
 @bp.route('/create', methods=['GET', 'POST'])
 @login_required
 def create():
     if request.method == 'POST':
         name = request.form['name']
         type = request.form['type']
+        
+        if check_portfolio_exists(name, type, current_user.id):
+            flash(f'A portfolio named "{name}" with type "{type}" already exists.')
+            return redirect(url_for('portfolio.create'))
+            
         portfolio = Portfolio(name=name, type=type, owner=current_user)
         db.session.add(portfolio)
         db.session.commit()
@@ -154,6 +165,71 @@ def delete(id):
     db.session.delete(portfolio)
     db.session.commit()
     flash('Portfolio deleted successfully.')
+    return redirect(url_for('portfolio.index'))
+
+@bp.route('/rename/<int:id>', methods=['GET', 'POST'])
+@login_required
+def rename(id):
+    portfolio = Portfolio.query.get_or_404(id)
+    if portfolio.owner != current_user:
+        abort(403)
+        
+    if request.method == 'POST':
+        new_name = request.form['name']
+        new_type = request.form['type']
+        
+        if check_portfolio_exists(new_name, new_type, current_user.id, exclude_id=id):
+            flash(f'A portfolio named "{new_name}" with type "{new_type}" already exists.')
+            return redirect(url_for('portfolio.rename', id=id))
+            
+        portfolio.name = new_name
+        portfolio.type = new_type
+        db.session.commit()
+        flash('Portfolio renamed successfully.')
+        return redirect(url_for('portfolio.index'))
+        
+    return render_template('portfolio/rename.html', portfolio=portfolio)
+
+@bp.route('/duplicate/<int:id>')
+@login_required
+def duplicate(id):
+    portfolio = Portfolio.query.get_or_404(id)
+    if portfolio.owner != current_user:
+        abort(403)
+        
+    # Create new portfolio
+    new_name = f"Copy of {portfolio.name}"
+    
+    if check_portfolio_exists(new_name, portfolio.type, current_user.id):
+        flash(f'Cannot duplicate: A portfolio named "{new_name}" already exists.')
+        return redirect(url_for('portfolio.index'))
+
+    new_portfolio = Portfolio(
+        name=new_name,
+        type=portfolio.type,
+        owner=current_user,
+        analysis_benchmark_weight=portfolio.analysis_benchmark_weight,
+        analysis_benchmark_ticker=portfolio.analysis_benchmark_ticker,
+        analysis_relaxed_mode=portfolio.analysis_relaxed_mode,
+        analysis_trend_weight=portfolio.analysis_trend_weight,
+        analysis_relative_strength_weight=portfolio.analysis_relative_strength_weight
+    )
+    db.session.add(new_portfolio)
+    
+    # Copy holdings
+    for holding in portfolio.holdings:
+        new_holding = Holding(
+            symbol=holding.symbol,
+            units=holding.units,
+            target_percentage=holding.target_percentage,
+            portfolio=new_portfolio,
+            last_price=holding.last_price,
+            last_price_timestamp=holding.last_price_timestamp
+        )
+        db.session.add(new_holding)
+        
+    db.session.commit()
+    flash('Portfolio duplicated successfully.')
     return redirect(url_for('portfolio.index'))
 @bp.route('/rebalance/<int:id>', methods=['GET', 'POST'])
 @login_required
