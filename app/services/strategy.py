@@ -17,7 +17,7 @@ class RotationStrategy:
         self.rel_adj = rel_adj
         self.benchmark_ticker = benchmark_ticker
         self.relaxed_constraint = relaxed_constraint
-        self.tickers = list(base_weights.keys())
+        self.tickers = sorted(list(base_weights.keys()))
         
     def calculate_indicators(self):
         """
@@ -56,7 +56,9 @@ class RotationStrategy:
             # Relaxed Mode: Treat all tickers (including benchmark) equally for adjustments
             raw_weights = {}
             
-            for ticker, base_weight in self.base_weights.items():
+            # Iterate over sorted tickers for deterministic behavior
+            for ticker in self.tickers:
+                base_weight = self.base_weights[ticker]
                 weight = base_weight
                 
                 # Trend Filter
@@ -90,10 +92,12 @@ class RotationStrategy:
             benchmark_weight = self.base_weights.get(self.benchmark_ticker, 0.0)
             other_weights = {}
             
-            for ticker, base_weight in self.base_weights.items():
+            # Iterate over sorted tickers for deterministic behavior
+            for ticker in self.tickers:
                 if ticker == self.benchmark_ticker:
                     continue
                     
+                base_weight = self.base_weights[ticker]
                 weight = base_weight
                 
                 # Trend Filter
