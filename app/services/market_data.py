@@ -96,6 +96,58 @@ def get_historical_data(symbols, period='2y'):
             if isinstance(df_close, pd.DataFrame) and len(df_close.columns) == 1:
                 df_close.columns = fetch_symbols
 
+        # Patch: Check if we need to append latest data (if yf.download is stale)
+        if not df_close.empty:
+            last_date = df_close.index[-1]
+            today = datetime.now().date()
+            
+            # If last data is older than today, try to fetch latest price
+            if last_date.date() < today:
+                latest_prices = {}
+                latest_timestamp = None
+                
+                # Determine symbols to check
+                if isinstance(df_close, pd.Series):
+                    check_symbols = fetch_symbols
+                else:
+                    check_symbols = df_close.columns.tolist()
+                
+                for sym in check_symbols:
+                    # Use existing single-symbol fetcher which uses ticker.history(period='1d')
+                    price_data = get_yahoo_price(sym)
+                    if price_data:
+                        try:
+                            ts = datetime.strptime(price_data['timestamp'], '%Y-%m-%d %H:%M:%S')
+                            if ts > last_date:
+                                latest_prices[sym] = price_data['price']
+                                if latest_timestamp is None or ts > latest_timestamp:
+                                    latest_timestamp = ts
+                        except (ValueError, TypeError):
+                            continue
+                
+                if latest_prices and latest_timestamp:
+                    new_date = pd.Timestamp(latest_timestamp).normalize()
+                    
+                    if new_date > last_date:
+                        if isinstance(df_close, pd.Series):
+                            # Handle Series
+                            sym = check_symbols[0]
+                            if sym in latest_prices:
+                                val = latest_prices[sym]
+                                new_row = pd.Series([val], index=[new_date])
+                                # Preserve name if possible
+                                new_row.name = df_close.name
+                                df_close = pd.concat([df_close, new_row])
+                        else:
+                            # Handle DataFrame
+                            new_row = pd.Series(index=df_close.columns, dtype='float64')
+                            for sym, price in latest_prices.items():
+                                if sym in new_row.index:
+                                    new_row[sym] = price
+                            
+                            # Append to DataFrame
+                            df_close.loc[new_date] = new_row
+
         return df_close
     except Exception as e:
         print(f"Error fetching historical data: {e}")
