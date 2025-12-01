@@ -60,14 +60,17 @@ class RotationStrategy:
                 weight = base_weight
                 
                 # Trend Filter
-                if current_prices.get(ticker, 0) > current_ma.get(ticker, 0):
+                trend_val = current_prices.get(ticker, 0)
+                ma_val = current_ma.get(ticker, 0)
+                if trend_val > ma_val:
                     weight += self.trend_adj
                 else:
                     weight -= self.trend_adj
                     
                 # Relative Performance (Benchmark vs Benchmark is 0 diff, so no adj)
                 if ticker != self.benchmark_ticker:
-                    if current_3m.get(ticker, 0) > benchmark_3m:
+                    ret_val = current_3m.get(ticker, 0)
+                    if ret_val > benchmark_3m:
                         weight += self.rel_adj
                     else:
                         weight -= self.rel_adj
