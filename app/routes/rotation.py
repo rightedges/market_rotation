@@ -52,9 +52,27 @@ def analysis(id):
     if period not in ['5y', '10y', '15y', '20y']:
         period = '5y'
     
+    # Calculate fixed start date to ensure consistency with optimization script
+    # Default to 5y if not specified or invalid
+    years = 5
+    if period.endswith('y'):
+        try:
+            years = int(period[:-1])
+        except ValueError:
+            pass
+            
+    # Use a fixed end date (today) and start date (today - years)
+    # This avoids "yfinance" relative period discrepancies
+    end_date_dt = datetime.now()
+    start_date_dt = end_date_dt - timedelta(days=years*365)
+    
+    start_date_str = start_date_dt.strftime('%Y-%m-%d')
+    # We don't pass end_date to allow fetching up to the absolute latest available
+    
     # Fetch historical data
     # Convert list to tuple for lru_cache
-    df_close = get_historical_data(tuple(fetch_tickers), period=period)
+    # Pass start_date explicitly
+    df_close = get_historical_data(tuple(fetch_tickers), period=period, start_date=start_date_str)
     
     if df_close is None or df_close.empty:
         flash('Failed to fetch historical data. Please try again later.')
@@ -62,9 +80,10 @@ def analysis(id):
         
     # Check data sufficiency
     # Drop rows where any ticker is NaN to find the effective start date for a full portfolio backtest
-    df_clean = df_close.dropna()
-    if not df_clean.empty:
-        actual_start = df_clean.index[0]
+    df_close = df_close.dropna()
+    
+    if not df_close.empty:
+        actual_start = df_close.index[0]
         
         # Calculate expected start
         today = datetime.now()
@@ -228,22 +247,28 @@ def analysis(id):
         "benchmark_ticker": benchmark_ticker
     }
     
-    # Calculate Metrics
-    total_return = (portfolio_series.iloc[-1] / portfolio_series.iloc[0]) - 1
-    days = (portfolio_series.index[-1] - portfolio_series.index[0]).days
-    cagr = (1 + total_return) ** (365 / days) - 1 if days > 0 else 0
-    
-    # Max Drawdown
-    rolling_max = portfolio_series.cummax()
-    drawdown = (portfolio_series - rolling_max) / rolling_max
-    max_drawdown = drawdown.min()
+    # Calculate Metrics using Daily Data via shared strategy method
+    metrics_data = RotationStrategy.calculate_metrics(portfolio_series_daily)
     
     metrics = {
-        "total_return": f"{total_return:.1%}",
-        "cagr": f"{cagr:.1%}",
-        "max_drawdown": f"{max_drawdown:.1%}"
+        "total_return": f"{metrics_data['total_return']:.2%}",
+        "cagr": f"{metrics_data['cagr']:.2%}",
+        "max_drawdown": f"{metrics_data['max_drawdown']:.2%}"
     }
     
+    # Debug Logging
+    print("\n--- DEBUG ROTATION ANALYSIS ---")
+    print(f"Tickers: {tickers}")
+    print(f"Benchmark: {benchmark_ticker}")
+    print(f"Base Weights: {base_weights}")
+    print(f"Data Shape: {df_close.shape}")
+    print(f"Data Start: {df_close.index[0]}")
+    print(f"Data End: {df_close.index[-1]}")
+    print(f"Backtest Start (idx 63): {portfolio_series_daily.index[0]}")
+    print(f"Backtest End: {portfolio_series_daily.index[-1]}")
+    print(f"Metrics: {metrics}")
+    print("-------------------------------\n")
+
     # Calculate Historical Rotations
     rotation_data = []
     rotation_tickers = []
@@ -280,6 +305,8 @@ def analysis(id):
                          portfolio=portfolio, 
                          analysis_data=analysis_data, 
                          latest_date=latest_date.strftime('%Y-%m-%d'),
+                         start_date=portfolio_series_daily.index[0].strftime('%Y-%m-%d'),
+                         end_date=portfolio_series_daily.index[-1].strftime('%Y-%m-%d'),
                          relaxed=relaxed,
                          period=period,
                          benchmark_ticker=benchmark_ticker,

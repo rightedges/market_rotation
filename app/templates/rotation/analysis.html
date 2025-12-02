@@ -158,7 +158,10 @@
 <div class="dashboard-grid" style="margin-top: 2rem;">
     <div class="chart-section" style="width: 100%; max-width: 800px; margin: 0 auto 5rem auto; max-height: 400px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3>Backtest Performance ({{ period }})</h3>
+            <div>
+                <h3 style="margin-bottom: 0.25rem;">Backtest Performance ({{ period }})</h3>
+                <small style="color: var(--text-muted);">{{ start_date }} to {{ end_date }}</small>
+            </div>
         </div>
         <div class="metrics-row" style="display: flex; gap: 2rem; margin-bottom: 1rem;">
             <div class="metric">

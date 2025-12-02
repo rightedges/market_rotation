@@ -222,3 +222,34 @@ class RotationStrategy:
         weights_df = weights_df.dropna()
         portfolio_series = pd.Series(portfolio_history)
         return portfolio_series, weights_df
+
+    @staticmethod
+    def calculate_metrics(portfolio_series):
+        """
+        Calculates performance metrics for a portfolio series.
+        Returns a dictionary with 'total_return', 'cagr', and 'max_drawdown'.
+        """
+        if portfolio_series.empty:
+            return {
+                'total_return': 0.0,
+                'cagr': 0.0,
+                'max_drawdown': 0.0
+            }
+            
+        # Total Return
+        total_return = (portfolio_series.iloc[-1] / portfolio_series.iloc[0]) - 1
+        
+        # CAGR
+        days = (portfolio_series.index[-1] - portfolio_series.index[0]).days
+        cagr = (1 + total_return) ** (365 / days) - 1 if days > 0 else 0
+        
+        # Max Drawdown
+        rolling_max = portfolio_series.cummax()
+        drawdown = (portfolio_series - rolling_max) / rolling_max
+        max_drawdown = drawdown.min()
+        
+        return {
+            'total_return': total_return,
+            'cagr': cagr,
+            'max_drawdown': max_drawdown
+        }
