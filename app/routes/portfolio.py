@@ -1,8 +1,11 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, Response, jsonify
 from flask_login import login_required, current_user
 from app import db
 from app.models import Portfolio, Holding
 from app.services.market_data import check_symbol, get_prices
+import json
+from datetime import datetime
+import io
 
 bp = Blueprint('portfolio', __name__, url_prefix='/portfolio')
 
@@ -323,3 +326,112 @@ def rebalance(id):
 
     return render_template('portfolio/rebalance.html', portfolio=portfolio, holdings=holdings_data, total_value=total_value)
 
+
+@bp.route('/export')
+@login_required
+def export_data():
+    portfolios = current_user.portfolios.all()
+    data = []
+    
+    for p in portfolios:
+        p_data = {
+            'name': p.name,
+            'type': p.type,
+            'analysis_benchmark_weight': p.analysis_benchmark_weight,
+            'analysis_benchmark_ticker': p.analysis_benchmark_ticker,
+            'analysis_relaxed_mode': p.analysis_relaxed_mode,
+            'analysis_trend_weight': p.analysis_trend_weight,
+            'analysis_relative_strength_weight': p.analysis_relative_strength_weight,
+            'holdings': []
+        }
+        
+        for h in p.holdings:
+            h_data = {
+                'symbol': h.symbol,
+                'units': h.units,
+                'target_percentage': h.target_percentage
+            }
+            p_data['holdings'].append(h_data)
+            
+        data.append(p_data)
+        
+    json_str = json.dumps(data, indent=4)
+    
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"market_rotation_export_{timestamp}.json"
+    
+    return Response(
+        json_str,
+        mimetype="application/json",
+        headers={"Content-disposition": f"attachment; filename={filename}"}
+    )
+
+@bp.route('/import', methods=['POST'])
+@login_required
+def import_data():
+    if 'file' not in request.files:
+        flash('No file part')
+        return redirect(url_for('portfolio.index'))
+        
+    file = request.files['file']
+    
+    if file.filename == '':
+        flash('No selected file')
+        return redirect(url_for('portfolio.index'))
+        
+    if file:
+        try:
+            data = json.load(file)
+            
+            if not isinstance(data, list):
+                flash('Invalid file format: Expected a list of portfolios')
+                return redirect(url_for('portfolio.index'))
+                
+            count = 0
+            for p_data in data:
+                # Handle name conflicts
+                name = p_data.get('name', 'Untitled')
+                base_name = name
+                
+                # Check if exists
+                existing = Portfolio.query.filter_by(name=name, owner=current_user).first()
+                if existing:
+                    name = f"{base_name} (Imported)"
+                    # Check again
+                    if Portfolio.query.filter_by(name=name, owner=current_user).first():
+                        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+                        name = f"{base_name} (Imported {timestamp})"
+                
+                portfolio = Portfolio(
+                    name=name,
+                    type=p_data.get('type', 'General'),
+                    owner=current_user,
+                    analysis_benchmark_weight=p_data.get('analysis_benchmark_weight'),
+                    analysis_benchmark_ticker=p_data.get('analysis_benchmark_ticker'),
+                    analysis_relaxed_mode=p_data.get('analysis_relaxed_mode', False),
+                    analysis_trend_weight=p_data.get('analysis_trend_weight', 0.10),
+                    analysis_relative_strength_weight=p_data.get('analysis_relative_strength_weight', 0.05)
+                )
+                db.session.add(portfolio)
+                
+                for h_data in p_data.get('holdings', []):
+                    holding = Holding(
+                        symbol=h_data['symbol'],
+                        units=h_data['units'],
+                        target_percentage=h_data.get('target_percentage', 0.0),
+                        portfolio=portfolio
+                    )
+                    db.session.add(holding)
+                    
+                count += 1
+                
+            db.session.commit()
+            flash(f'Successfully imported {count} portfolios.')
+            
+        except json.JSONDecodeError:
+            flash('Invalid JSON file')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error importing data: {str(e)}')
+            
+    return redirect(url_for('portfolio.index'))

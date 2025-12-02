@@ -3,9 +3,18 @@
 {% block content %}
 <div class="portfolio-header">
     <h2>My Portfolios</h2>
-    <div class="actions" style="display: flex; gap: 1rem;">
+    <div class="actions" style="display: flex; gap: 1rem; align-items: center;">
         <a href="{{ url_for('portfolio.create_example') }}" class="btn-secondary">Create Example Portfolio</a>
         <a href="{{ url_for('portfolio.create') }}" class="btn-primary">Create New Portfolio</a>
+        <a href="{{ url_for('portfolio.export_data') }}" class="btn-secondary">Export Data</a>
+        <form action="{{ url_for('portfolio.import_data') }}" method="post" enctype="multipart/form-data"
+            style="display: inline-block;">
+            <label for="file-upload" class="btn-secondary" style="cursor: pointer; margin: 0;">
+                Import Data
+            </label>
+            <input id="file-upload" type="file" name="file" accept=".json" style="display: none;"
+                onchange="this.form.submit()">
+        </form>
     </div>
 </div>
 
