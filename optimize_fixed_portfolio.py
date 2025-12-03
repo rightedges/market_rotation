@@ -106,7 +106,7 @@ def optimize():
                     best_return = total_return
                     best_config = results[-1]
                     # Format weights for print
-                    w_str = ", ".join([f"{k}: {v:.0%}" for k, v in target_weights.items() if v > 0])
+                    w_str = ", ".join([f"{k}: {v:.0%}" for k, v in target_weights.items()])
                     print(f"New Best: {best_return:.2%} (CAGR: {cagr:.2%}, DD: {max_drawdown:.2%}) | Weights: {w_str}")
                     
         except Exception as e:
@@ -124,21 +124,20 @@ def optimize():
         print(f"Sharpe Ratio: {best_config['sharpe']:.2f}")
         print("Optimal Weights:")
         for t, w in best_config['weights'].items():
-            if w > 0:
-                print(f"  {t}: {w:.0%}")
+            print(f"  {t}: {w:.0%}")
         
         # Top 5 by Return
         print("\nTop 5 Configurations (by Return):")
         sorted_by_return = sorted(results, key=lambda x: x['return'], reverse=True)[:5]
         for i, res in enumerate(sorted_by_return):
-            w_str = ", ".join([f"{k}: {v:.0%}" for k, v in res['weights'].items() if v > 0])
+            w_str = ", ".join([f"{k}: {v:.0%}" for k, v in res['weights'].items()])
             print(f"{i+1}. Return: {res['return']:.2%} | CAGR: {res['cagr']:.2%} | DD: {res['max_drawdown']:.2%} | Weights: {w_str}")
 
         # Top 5 by Sharpe
         print("\nTop 5 Configurations (by Sharpe Ratio):")
         sorted_by_sharpe = sorted(results, key=lambda x: x['sharpe'], reverse=True)[:5]
         for i, res in enumerate(sorted_by_sharpe):
-            w_str = ", ".join([f"{k}: {v:.0%}" for k, v in res['weights'].items() if v > 0])
+            w_str = ", ".join([f"{k}: {v:.0%}" for k, v in res['weights'].items()])
             print(f"{i+1}. Sharpe: {res['sharpe']:.2f} | Return: {res['return']:.2%} | DD: {res['max_drawdown']:.2%} | Weights: {w_str}")
 
     else:
