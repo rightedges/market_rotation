@@ -109,7 +109,7 @@
 
 <!-- Chart Section -->
 <div class="dashboard-grid" style="margin-top: 2rem;">
-    <div class="chart-section" style="width: 100%; max-width: 800px; margin: 0 auto 5rem auto; max-height: 400px;">
+    <div class="chart-section" style="width: 100%; max-width: 800px; margin: 0 auto 5rem auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <div>
                 <h3 style="margin-bottom: 0.25rem;">Backtest Performance ({{ period }})</h3>
@@ -130,7 +130,9 @@
                 <span class="value">{{ metrics.max_drawdown }}</span>
             </div>
         </div>
-        <canvas id="backtestChart"></canvas>
+        <div style="position: relative; height: 400px; width: 100%;">
+            <canvas id="backtestChart"></canvas>
+        </div>
     </div>
 </div>
 
