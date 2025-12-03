@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block title %}Fixed Portfolio Analysis{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>Fixed Portfolio Analysis</h1>
+    <a href="{{ url_for('portfolio.view', id=portfolio.id) }}" class="btn btn-secondary">Back to Portfolio</a>
+</div>
+
+<div class="settings-card">
+    <div class="settings-header">
+        <h2>Strategy Settings</h2>
+        <span class="badge badge-secondary" style="background-color: #e2e8f0; color: #64748b;">
+            Fixed Weights
+        </span>
+    </div>
+
+    <div class="settings-grid">
+        <!-- Frequency Selection -->
+        <div class="control-group">
+            <label>Rebalancing Frequency</label>
+            <div class="dropdown" style="width: 100%;">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="frequencyDropdown"
+                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                    style="width: 100%; justify-content: space-between;">
+                    {{ frequency|capitalize }}
+                    <span style="margin-left: 0.5rem;">▼</span>
+                </button>
+                <div class="dropdown-menu" aria-labelledby="frequencyDropdown" style="width: 100%;">
+                    <a class="dropdown-item"
+                        href="{{ url_for('rotation.fixed_analysis', id=portfolio.id, frequency='monthly', benchmark=benchmark_ticker, period=period) }}">Monthly</a>
+                    <a class="dropdown-item"
+                        href="{{ url_for('rotation.fixed_analysis', id=portfolio.id, frequency='quarterly', benchmark=benchmark_ticker, period=period) }}">Quarterly</a>
+                    <a class="dropdown-item"
+                        href="{{ url_for('rotation.fixed_analysis', id=portfolio.id, frequency='semiannual', benchmark=benchmark_ticker, period=period) }}">Semi-Annual</a>
+                    <a class="dropdown-item"
+                        href="{{ url_for('rotation.fixed_analysis', id=portfolio.id, frequency='annual', benchmark=benchmark_ticker, period=period) }}">Annual</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Benchmark Selection -->
+        <div class="control-group">
+            <label>Benchmark Asset</label>
+            <div class="dropdown" style="width: 100%;">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="benchmarkDropdown"
+                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                    style="width: 100%; justify-content: space-between;">
+                    {{ benchmark_ticker }}
+                    <span style="margin-left: 0.5rem;">▼</span>
+                </button>
+                <div class="dropdown-menu" aria-labelledby="benchmarkDropdown" style="width: 100%;">
+                    {% for ticker in available_benchmarks %}
+                    <a class="dropdown-item"
+                        href="{{ url_for('rotation.fixed_analysis', id=portfolio.id, benchmark=ticker, frequency=frequency, period=period) }}">
+                        {{ ticker }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Period Selection -->
+        <div class="control-group">
+            <label>Backtest History</label>
+            <div class="segmented-control">
+                {% for p in ['5y', '10y', '15y', '20y'] %}
+                <a href="{{ url_for('rotation.fixed_analysis', id=portfolio.id, period=p, benchmark=benchmark_ticker, frequency=frequency) }}"
+                    class="btn {{ 'active' if period == p else '' }}">
+                    {{ p }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Allocation Table / Form -->
+<form method="POST"
+    action="{{ url_for('rotation.fixed_analysis', id=portfolio.id, benchmark=benchmark_ticker, frequency=frequency, period=period) }}">
+    <div class="table-container">
+        <table class="holdings-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Target Allocation (%)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in holdings %}
+                <tr>
+                    <td>
+                        <div class="symbol-badge">{{ h.symbol }}</div>
+                    </td>
+                    <td>
+                        <input type="number" step="0.1" name="weight_{{ h.symbol }}" value="{{ h.target_percentage }}"
+                            class="form-control" style="width: 100px;">
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="form-actions" style="margin-top: 2rem; text-align: right;">
+        <button type="submit" class="btn btn-primary">Apply Targets & Re-run</button>
+    </div>
+</form>
+
+<!-- Chart Section -->
+<div class="dashboard-grid" style="margin-top: 2rem;">
+    <div class="chart-section" style="width: 100%; max-width: 800px; margin: 0 auto 5rem auto; max-height: 400px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div>
+                <h3 style="margin-bottom: 0.25rem;">Backtest Performance ({{ period }})</h3>
+                <small style="color: var(--text-muted);">{{ start_date }} to {{ end_date }}</small>
+            </div>
+        </div>
+        <div class="metrics-row" style="display: flex; gap: 2rem; margin-bottom: 1rem;">
+            <div class="metric">
+                <span class="label">Total Return</span>
+                <span class="value">{{ metrics.total_return }}</span>
+            </div>
+            <div class="metric">
+                <span class="label">CAGR</span>
+                <span class="value">{{ metrics.cagr }}</span>
+            </div>
+            <div class="metric">
+                <span class="label">Max Drawdown</span>
+                <span class="value">{{ metrics.max_drawdown }}</span>
+            </div>
+        </div>
+        <canvas id="backtestChart"></canvas>
+    </div>
+</div>
+
+<!-- Historical Rotations -->
+<div class="card" style="margin-top: 2rem;">
+    <div class="card-header">
+        <h2>Historical Rebalancing</h2>
+    </div>
+    <div class="card-body">
+        <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+            <table class="holdings-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Portfolio Value</th>
+                        {% for ticker in rotation_tickers %}
+                        <th>{{ ticker }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rotation_data %}
+                    <tr>
+                        <td>{{ row.date }}</td>
+                        <td>${{ "{:,.2f}".format(row.value) }}</td>
+                        {% for ticker in rotation_tickers %}
+                        <td>{{ "%.1f%%"|format(row[ticker] * 100) }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="{{ rotation_tickers|length + 1 }}" style="text-align: center;">No historical data
+                            available.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Strategy Details -->
+<div class="card" style="margin-top: 2rem;">
+    <div class="card-header">
+        <h2>Strategy Details</h2>
+    </div>
+    <div class="card-body">
+        <p>The Fixed Portfolio Strategy simulates the performance of a portfolio with constant target allocations,
+            rebalanced periodically.</p>
+
+        <h3>Rules</h3>
+        <ul>
+            <li><strong>Target Allocation:</strong> The portfolio is reset to the specified target weights at each
+                rebalancing date.</li>
+            <li><strong>Rebalancing Frequency:</strong> {{ frequency|capitalize }} (e.g., every {{ 'month' if frequency
+                == 'monthly' else 'quarter' if frequency == 'quarterly' else '6 months' if frequency == 'semiannual'
+                else 'year' }}).</li>
+            <li><strong>Drift:</strong> Between rebalancing dates, the portfolio weights will drift as asset prices
+                change.</li>
+        </ul>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('backtestChart');
+    const chartData = JSON.parse('{{ chart_data | safe }}');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                {
+                    label: 'Fixed Portfolio',
+                    data: chartData.values,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.1
+                },
+                {
+                    label: `Benchmark (${chartData.benchmark_ticker || 'VOO'})`,
+                    data: chartData.benchmark_values,
+                    borderColor: '#9ca3af',
+                    borderDash: [5, 5],
+                    fill: false,
+                    tension: 0.1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    ticks: {
+                        callback: function (value, index, values) {
+                            return '$' + value;
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        maxTicksLimit: 12
+                    }
+                }
+            }
+        }
+    });
+
+    // Custom Dropdown Logic
+    document.addEventListener('DOMContentLoaded', function () {
+        const dropdowns = document.querySelectorAll('.dropdown');
+
+        dropdowns.forEach(dropdown => {
+            const toggle = dropdown.querySelector('.dropdown-toggle');
+            const menu = dropdown.querySelector('.dropdown-menu');
+
+            if (toggle && menu) {
+                toggle.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    menu.classList.toggle('show');
+                });
+            }
+        });
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function (e) {
+            dropdowns.forEach(dropdown => {
+                const menu = dropdown.querySelector('.dropdown-menu');
+                if (menu && menu.classList.contains('show')) {
+                    menu.classList.remove('show');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

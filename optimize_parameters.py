@@ -6,12 +6,12 @@ from app.services.strategy import RotationStrategy
 from datetime import datetime, timedelta
 
 def optimize():
-    tickers = ['VOO', 'QQQM', 'SPMO', 'BRK-B']
+    tickers = ['VOO', 'QQQ', 'SPMO', 'BRK-B']
     benchmark_ticker = 'VOO'
-    period = '5y'
+    period = '10y'
     
     # Calculate fixed start date (same as web app)
-    years = 5
+    years = 10
     end_date_dt = datetime.now()
     start_date_dt = end_date_dt - timedelta(days=years*365)
     start_date_str = start_date_dt.strftime('%Y-%m-%d')

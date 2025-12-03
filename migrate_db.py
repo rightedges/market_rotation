@@ -48,6 +48,17 @@ def migrate():
     else:
         print("Column 'analysis_relaxed_mode' already exists.")
         
+    if 'fixed_analysis_frequency' not in columns:
+        print("Adding 'fixed_analysis_frequency' column to 'portfolio' table...")
+        try:
+            cursor.execute("ALTER TABLE portfolio ADD COLUMN fixed_analysis_frequency VARCHAR(20) DEFAULT 'quarterly'")
+            conn.commit()
+            print("Migration successful.")
+        except Exception as e:
+            print(f"Migration failed: {e}")
+    else:
+        print("Column 'fixed_analysis_frequency' already exists.")
+
     conn.close()
 
 if __name__ == "__main__":

@@ -344,3 +344,146 @@ def apply(id):
     db.session.commit()
     flash('Target allocation updated based on rotation analysis.')
     return redirect(url_for('portfolio.rebalance', id=id))
+
+@bp.route('/<int:id>/fixed_analysis', methods=['GET', 'POST'])
+@login_required
+def fixed_analysis(id):
+    portfolio = Portfolio.query.get_or_404(id)
+    if portfolio.owner != current_user:
+        abort(403)
+        
+    holdings = portfolio.holdings.all()
+    if not holdings:
+        flash('Add stocks to your portfolio before running analysis.')
+        return redirect(url_for('portfolio.view', id=id))
+        
+    if request.method == 'POST':
+        # Update target percentages
+        for h in holdings:
+            weight_str = request.form.get(f'weight_{h.symbol}')
+            if weight_str:
+                try:
+                    weight = float(weight_str)
+                    h.target_percentage = weight
+                except ValueError:
+                    pass
+        db.session.commit()
+        flash('Portfolio allocations updated.')
+        # Redirect to GET to refresh analysis with new weights
+        return redirect(url_for('rotation.fixed_analysis', id=id, 
+                              benchmark=request.args.get('benchmark'), 
+                              frequency=request.args.get('frequency'),
+                              period=request.args.get('period')))
+        
+    tickers = [h.symbol for h in holdings]
+    
+    # Get benchmark
+    benchmark_input = request.args.get('benchmark')
+    if benchmark_input:
+        portfolio.analysis_benchmark_ticker = benchmark_input
+        db.session.commit()
+        benchmark_ticker = benchmark_input
+    elif portfolio.analysis_benchmark_ticker:
+        benchmark_ticker = portfolio.analysis_benchmark_ticker
+    else:
+        benchmark_ticker = 'VOO' if 'VOO' in tickers else (tickers[0] if tickers else None)
+
+    # Get frequency
+    frequency_input = request.args.get('frequency')
+    if frequency_input and frequency_input in ['monthly', 'quarterly', 'semiannual', 'annual']:
+        portfolio.fixed_analysis_frequency = frequency_input
+        db.session.commit()
+        frequency = frequency_input
+    else:
+        frequency = portfolio.fixed_analysis_frequency or 'quarterly'
+        
+    # Get period
+    period = request.args.get('period', '5y')
+    if period not in ['5y', '10y', '15y', '20y']:
+        period = '5y'
+        
+    # Fetch data
+    fetch_tickers = list(set(tickers + [benchmark_ticker])) if benchmark_ticker else tickers
+    df_close = get_historical_data(tuple(fetch_tickers), period=period)
+    
+    if df_close is None or df_close.empty:
+        flash('Failed to fetch historical data.')
+        return redirect(url_for('portfolio.view', id=id))
+        
+    # Base weights from current targets
+    base_weights = {}
+    total_target = sum(h.target_percentage for h in holdings)
+    for h in holdings:
+        if total_target > 0:
+            base_weights[h.symbol] = h.target_percentage / 100.0
+        else:
+            base_weights[h.symbol] = 1.0 / len(holdings)
+            
+    # Run Strategy
+    from app.services.strategy import FixedRebalanceStrategy, RotationStrategy
+    strategy = FixedRebalanceStrategy(df_close, base_weights, frequency=frequency)
+    portfolio_series, weights_history = strategy.run_backtest()
+    
+    # Calculate Metrics
+    metrics = RotationStrategy.calculate_metrics(portfolio_series)
+    
+    # Format metrics
+    metrics['total_return'] = f"{metrics['total_return']:.1%}"
+    metrics['cagr'] = f"{metrics['cagr']:.1%}"
+    metrics['max_drawdown'] = f"{metrics['max_drawdown']:.1%}"
+    
+    # Prepare Chart Data
+    portfolio_series_monthly = portfolio_series.resample('M').last().ffill().fillna(0)
+    
+    benchmark_values = []
+    if benchmark_ticker and benchmark_ticker in df_close.columns:
+        bench_prices = df_close[benchmark_ticker].resample('M').last()
+        bench_prices = bench_prices.reindex(portfolio_series_monthly.index, method='ffill')
+        if not bench_prices.empty and bench_prices.iloc[0] > 0:
+            bench_series = (bench_prices / bench_prices.iloc[0]) * 10000
+            bench_series = bench_series.ffill().fillna(0)
+            benchmark_values = bench_series.values.tolist()
+            
+    chart_data = {
+        "labels": portfolio_series_monthly.index.strftime('%Y-%m-%d').tolist(),
+        "values": portfolio_series_monthly.values.tolist(),
+        "benchmark_values": benchmark_values,
+        "benchmark_ticker": benchmark_ticker
+    }
+    
+    # Prepare Historical Rotations Data
+    rotation_data = []
+    rotation_tickers = []
+    
+    if not weights_history.empty:
+        rotation_tickers = sorted(weights_history.columns.tolist())
+        # Sort by date descending
+        weights_history = weights_history.sort_index(ascending=False)
+        
+        for date, weights in weights_history.iterrows():
+            row = {'date': date.strftime('%Y-%m-%d')}
+            # Get portfolio value for this date
+            if date in portfolio_series.index:
+                row['value'] = portfolio_series.loc[date]
+            else:
+                row['value'] = 0.0
+                
+            for ticker in rotation_tickers:
+                row[ticker] = weights.get(ticker, 0)
+            rotation_data.append(row)
+    
+    import json
+    return render_template('rotation/fixed_analysis.html',
+                         portfolio=portfolio,
+                         holdings=holdings,
+                         metrics=metrics,
+                         chart_data=json.dumps(chart_data),
+                         period=period,
+                         frequency=frequency,
+                         benchmark_ticker=benchmark_ticker,
+                         available_benchmarks=sorted(tickers),
+                         rotation_data=rotation_data,
+                         rotation_tickers=rotation_tickers,
+                         start_date=portfolio_series.index[0].strftime('%Y-%m-%d') if not portfolio_series.empty else '',
+                         end_date=portfolio_series.index[-1].strftime('%Y-%m-%d') if not portfolio_series.empty else '')
+

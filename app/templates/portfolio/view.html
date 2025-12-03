@@ -10,6 +10,8 @@
         <a href="{{ url_for('portfolio.view', id=portfolio.id) }}" class="btn-secondary">Refresh Prices</a>
         <a href="{{ url_for('portfolio.add_stock', id=portfolio.id) }}" class="btn-secondary">Add Stock</a>
         <a href="{{ url_for('rotation.analysis', id=portfolio.id) }}" class="btn-secondary">Market Rotation Analysis</a>
+        <a href="{{ url_for('rotation.fixed_analysis', id=portfolio.id) }}" class="btn-secondary">Fixed Portfolio
+            Analysis</a>
         <a href="{{ url_for('portfolio.rebalance', id=portfolio.id) }}" class="btn-secondary"
             id="rebalance-btn">Rebalance</a>
     </div>

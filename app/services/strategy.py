@@ -253,3 +253,88 @@ class RotationStrategy:
             'cagr': cagr,
             'max_drawdown': max_drawdown
         }
+
+class FixedRebalanceStrategy:
+    def __init__(self, data, target_weights, frequency='quarterly'):
+        """
+        data: DataFrame of Close prices
+        target_weights: dict {ticker: weight} (Should sum to 1.0)
+        frequency: str ('monthly', 'quarterly', 'semiannual', 'annual')
+        """
+        self.data = data
+        self.target_weights = target_weights
+        self.frequency = frequency.lower()
+        self.tickers = sorted(list(target_weights.keys()))
+        
+    def run_backtest(self):
+        """
+        Runs the fixed weight rebalancing backtest.
+        """
+        # Determine rebalancing dates
+        if self.frequency == 'monthly':
+            rebalance_dates = self.data.groupby([self.data.index.year, self.data.index.month]).apply(lambda x: x.index[-1])
+        elif self.frequency == 'quarterly':
+            rebalance_dates = self.data.groupby([self.data.index.year, self.data.index.quarter]).apply(lambda x: x.index[-1])
+        elif self.frequency == 'semiannual':
+            # Custom grouping for semi-annual (approx every 6 months)
+            # We can use month // 7 to group 1-6 and 7-12
+            rebalance_dates = self.data.groupby([self.data.index.year, (self.data.index.month - 1) // 6]).apply(lambda x: x.index[-1])
+        elif self.frequency == 'annual':
+            rebalance_dates = self.data.groupby([self.data.index.year]).apply(lambda x: x.index[-1])
+        else:
+            # Default to quarterly
+            rebalance_dates = self.data.groupby([self.data.index.year, self.data.index.quarter]).apply(lambda x: x.index[-1])
+            
+        rebalance_dates = set(rebalance_dates)
+        
+        daily_dates = self.data.index
+        if len(daily_dates) == 0:
+            return pd.Series(), pd.DataFrame()
+            
+        capital = 10000.0
+        portfolio_history = {}
+        weights_history = {} # Use dict for sparse storage then convert to DF
+        
+        # Start from the first available date
+        start_date = daily_dates[0]
+        
+        # Initial Allocation
+        units = {t: 0.0 for t in self.tickers}
+        prices = self.data.loc[start_date]
+        
+        # Record initial weights
+        weights_history[start_date] = self.target_weights.copy()
+        
+        for t in self.tickers:
+            alloc = capital * self.target_weights.get(t, 0)
+            if prices[t] > 0:
+                units[t] = alloc / prices[t]
+            else:
+                units[t] = 0
+                
+        portfolio_history[start_date] = capital
+        
+        for i in range(1, len(daily_dates)):
+            date = daily_dates[i]
+            price = self.data.loc[date]
+            
+            # Calculate current value
+            val = sum(units[t] * price[t] for t in self.tickers)
+            portfolio_history[date] = val
+            
+            # Rebalance if needed
+            if date in rebalance_dates:
+                # Record rebalancing
+                weights_history[date] = self.target_weights.copy()
+                
+                for t in self.tickers:
+                    alloc = val * self.target_weights.get(t, 0)
+                    if price[t] > 0:
+                        units[t] = alloc / price[t]
+                    else:
+                        units[t] = 0
+                        
+        portfolio_series = pd.Series(portfolio_history)
+        weights_df = pd.DataFrame.from_dict(weights_history, orient='index')
+        return portfolio_series, weights_df
+
