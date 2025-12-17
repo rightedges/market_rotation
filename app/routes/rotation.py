@@ -368,12 +368,18 @@ def fixed_analysis(id):
                 except ValueError:
                     pass
         db.session.commit()
-        flash('Portfolio allocations updated.')
-        # Redirect to GET to refresh analysis with new weights
-        return redirect(url_for('rotation.fixed_analysis', id=id, 
-                              benchmark=request.args.get('benchmark'), 
-                              frequency=request.args.get('frequency'),
-                              period=request.args.get('period')))
+        action = request.form.get('action', 'analyze')
+
+        if action == 'apply':
+             flash('Target allocation updated based on fixed analysis.')
+             return redirect(url_for('portfolio.rebalance', id=id))
+        else:
+             flash('Portfolio allocations updated.')
+             # Redirect to GET to refresh analysis with new weights
+             return redirect(url_for('rotation.fixed_analysis', id=id, 
+                                   benchmark=request.args.get('benchmark'), 
+                                   frequency=request.args.get('frequency'),
+                                   period=request.args.get('period')))
         
     tickers = [h.symbol for h in holdings]
     
