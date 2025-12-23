@@ -118,6 +118,19 @@ def analysis(id):
         for h in holdings:
             base_weights[h.symbol] = equal_weight
             
+    # Check for reset request
+    if request.args.get('reset_benchmark_weight'):
+        portfolio.analysis_benchmark_weight = None
+        db.session.commit()
+        return redirect(url_for('rotation.analysis', 
+                              id=id, 
+                              period=period, 
+                              benchmark=benchmark_ticker,
+                              relaxed='true' if request.args.get('relaxed') == 'true' else 'false',
+                              trend_weight=request.args.get('trend_weight'),
+                              rel_weight=request.args.get('rel_weight')
+                              ))
+
     # Check for benchmark weight override
     benchmark_weight_input = request.args.get('benchmark_weight')
     

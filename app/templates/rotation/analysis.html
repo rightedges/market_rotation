@@ -46,18 +46,25 @@
         <!-- Benchmark Weight -->
         <div class="control-group">
             <label>Benchmark Allocation</label>
-            <form action="{{ url_for('rotation.analysis', id=portfolio.id) }}" method="get" class="input-group">
-                <input type="hidden" name="period" value="{{ period }}">
-                <input type="hidden" name="relaxed" value="{{ 'true' if relaxed else 'false' }}">
-                <input type="hidden" name="benchmark" value="{{ benchmark_ticker }}">
-                <input type="hidden" name="trend_weight" value="{{ trend_weight }}">
-                <input type="hidden" name="rel_weight" value="{{ rel_weight }}">
+            <div style="display: flex; gap: 0.25rem;">
+                <form action="{{ url_for('rotation.analysis', id=portfolio.id) }}" method="get" class="input-group">
+                    <input type="hidden" name="period" value="{{ period }}">
+                    <input type="hidden" name="relaxed" value="{{ 'true' if relaxed else 'false' }}">
+                    <input type="hidden" name="benchmark" value="{{ benchmark_ticker }}">
+                    <input type="hidden" name="trend_weight" value="{{ trend_weight }}">
+                    <input type="hidden" name="rel_weight" value="{{ rel_weight }}">
 
-                <input type="number" name="benchmark_weight"
-                    value="{{ benchmark_weight_input or current_bench_weight }}" min="0" max="100" step="1"
-                    class="form-control" style="width: 80px;">
-                <button type="submit" class="btn btn-secondary">Set %</button>
-            </form>
+                    <input type="number" name="benchmark_weight"
+                        value="{{ benchmark_weight_input or current_bench_weight }}" min="0" max="100" step="1"
+                        class="form-control" style="width: 80px;">
+                    <button type="submit" class="btn btn-secondary">Set %</button>
+                </form>
+                {% if portfolio.analysis_benchmark_weight is not none %}
+                <a href="{{ url_for('rotation.analysis', id=portfolio.id, period=period, relaxed='true' if relaxed else 'false', benchmark=benchmark_ticker, trend_weight=trend_weight, rel_weight=rel_weight, reset_benchmark_weight='true') }}"
+                    class="btn btn-outline-secondary" title="Clear manual allocation"
+                    style="padding: 0 0.75rem; display: flex; align-items: center; border: 1px solid #cbd5e1; color: #64748b;">✕</a>
+                {% endif %}
+            </div>
         </div>
 
         <!-- Strategy Weights -->
