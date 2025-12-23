@@ -139,7 +139,7 @@ To upgrade the application to the latest version without losing your data:
 
 1.  **Pull the latest changes:**
     ```bash
-    git pull origin portfolioapp
+    git pull origin main
     ```
 
 2.  **Update dependencies:**
