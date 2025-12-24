@@ -95,13 +95,15 @@ def optimize():
                     'relaxed': relaxed,
                     'return': total_return,
                     'cagr': cagr,
-                    'max_drawdown': max_drawdown
+                    'max_drawdown': max_drawdown,
+                    'win_streak': metrics['winning_streak'],
+                    'lose_streak': metrics['losing_streak']
                 })
                 
                 if total_return > best_return:
                     best_return = total_return
                     best_params = results[-1]
-                    print(f"New Best: {best_return:.2%} (CAGR: {cagr:.2%}, DD: {max_drawdown:.2%}) | Params: {best_params}")
+                    print(f"New Best: {best_return:.2%} (CAGR: {cagr:.2%}, DD: {max_drawdown:.2%}, Win/Lose: {metrics['winning_streak']}/{metrics['losing_streak']} mo) | Params: {best_params}")
         except Exception as e:
             print(f"Error in run: {e}")
             continue
@@ -114,6 +116,7 @@ def optimize():
         print(f"Highest Return: {best_params['return']:.2%}")
         print(f"CAGR: {best_params['cagr']:.2%}")
         print(f"Max Drawdown: {best_params['max_drawdown']:.2%}")
+        print(f"Longest Win/Lose Streak: {best_params['win_streak']}/{best_params['lose_streak']} mo")
         print("Optimal Parameters:")
         print(f"  Benchmark: {best_params['benchmark_ticker']}")
         print(f"  Benchmark Allocation: {best_params['benchmark_alloc']:.0%}")
@@ -126,7 +129,7 @@ def optimize():
         sorted_results = sorted(results, key=lambda x: x['return'], reverse=True)[:5]
         for i, res in enumerate(sorted_results):
             mode_str = 'Relaxed' if res['relaxed'] else 'Strict'
-            print(f"{i+1}. Return: {res['return']:.2%} | CAGR: {res['cagr']:.2%} | DD: {res['max_drawdown']:.2%} | Bench ({res['benchmark_ticker']}): {res['benchmark_alloc']:.0%}, Trend: {res['trend_w']:.0%}, Rel: {res['rel_w']:.0%}, Mode: {mode_str}")
+            print(f"{i+1}. Return: {res['return']:.2%} | CAGR: {res['cagr']:.2%} | DD: {res['max_drawdown']:.2%} | Streak W/L: {res['win_streak']}/{res['lose_streak']} mo | Bench ({res['benchmark_ticker']}): {res['benchmark_alloc']:.0%}, Trend: {res['trend_w']:.0%}, Rel: {res['rel_w']:.0%}, Mode: {mode_str}")
     else:
         print("No results found.")
 

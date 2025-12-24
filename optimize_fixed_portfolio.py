@@ -99,6 +99,8 @@ def optimize():
                     'return': total_return,
                     'cagr': cagr,
                     'max_drawdown': max_drawdown,
+                    'win_streak': metrics['winning_streak'],
+                    'lose_streak': metrics['losing_streak'],
                     'sharpe': sharpe
                 })
                 
@@ -107,7 +109,7 @@ def optimize():
                     best_config = results[-1]
                     # Format weights for print
                     w_str = ", ".join([f"{k}: {v:.0%}" for k, v in target_weights.items()])
-                    print(f"New Best: {best_return:.2%} (CAGR: {cagr:.2%}, DD: {max_drawdown:.2%}) | Weights: {w_str}")
+                    print(f"New Best: {best_return:.2%} (CAGR: {cagr:.2%}, DD: {max_drawdown:.2%}, Win/Lose: {metrics['winning_streak']}/{metrics['losing_streak']} mo) | Weights: {w_str}")
                     
         except Exception as e:
             print(f"Error in run: {e}")
@@ -121,6 +123,7 @@ def optimize():
         print(f"Highest Return: {best_config['return']:.2%}")
         print(f"CAGR: {best_config['cagr']:.2%}")
         print(f"Max Drawdown: {best_config['max_drawdown']:.2%}")
+        print(f"Longest Win/Lose Streak: {best_config['win_streak']}/{best_config['lose_streak']} mo")
         print(f"Sharpe Ratio: {best_config['sharpe']:.2f}")
         print("Optimal Weights:")
         for t, w in best_config['weights'].items():
@@ -131,14 +134,14 @@ def optimize():
         sorted_by_return = sorted(results, key=lambda x: x['return'], reverse=True)[:5]
         for i, res in enumerate(sorted_by_return):
             w_str = ", ".join([f"{k}: {v:.0%}" for k, v in res['weights'].items()])
-            print(f"{i+1}. Return: {res['return']:.2%} | CAGR: {res['cagr']:.2%} | DD: {res['max_drawdown']:.2%} | Weights: {w_str}")
+            print(f"{i+1}. Return: {res['return']:.2%} | CAGR: {res['cagr']:.2%} | DD: {res['max_drawdown']:.2%} | Streak W/L: {res['win_streak']}/{res['lose_streak']} mo | Weights: {w_str}")
 
         # Top 5 by Sharpe
         print("\nTop 5 Configurations (by Sharpe Ratio):")
         sorted_by_sharpe = sorted(results, key=lambda x: x['sharpe'], reverse=True)[:5]
         for i, res in enumerate(sorted_by_sharpe):
             w_str = ", ".join([f"{k}: {v:.0%}" for k, v in res['weights'].items()])
-            print(f"{i+1}. Sharpe: {res['sharpe']:.2f} | Return: {res['return']:.2%} | DD: {res['max_drawdown']:.2%} | Weights: {w_str}")
+            print(f"{i+1}. Sharpe: {res['sharpe']:.2f} | Return: {res['return']:.2%} | DD: {res['max_drawdown']:.2%} | Streak W/L: {res['win_streak']}/{res['lose_streak']} mo | Weights: {w_str}")
 
     else:
         print("No results found.")
