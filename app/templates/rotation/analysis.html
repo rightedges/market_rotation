@@ -212,9 +212,11 @@
                     <tr>
                         <td>{{ row.date }}</td>
                         <td>${{ "{:,.2f}".format(row.value) }}</td>
-                        <td
-                            class="{{ 'text-success' if row.gain_loss > 0 else 'text-danger' if row.gain_loss < 0 else '' }}">
-                            {{ "{:+.2f}%".format(row.gain_loss * 100) }}
+                        <td>
+                            <span
+                                class="badge badge-pill {{ 'badge-success' if row.gain_loss > 0 else 'badge-danger' if row.gain_loss < 0 else 'badge-secondary' }}">
+                                {{ "{:+.2f}%".format(row.gain_loss * 100) }}
+                            </span>
                         </td>
                         {% for ticker in rotation_tickers %}
                         <td>{{ "%.1f%%"|format(row[ticker] * 100) }}</td>
