@@ -605,3 +605,8 @@ select:focus {
 .text-danger {
     color: var(--danger-color) !important;
 }
+
+.badge-secondary {
+    background-color: #e2e8f0;
+    color: #475569;
+}
