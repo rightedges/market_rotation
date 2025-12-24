@@ -227,13 +227,16 @@ class RotationStrategy:
     def calculate_metrics(portfolio_series):
         """
         Calculates performance metrics for a portfolio series.
-        Returns a dictionary with 'total_return', 'cagr', and 'max_drawdown'.
+        Returns a dictionary with 'total_return', 'cagr', 'max_drawdown',
+        'winning_streak', and 'losing_streak'.
         """
         if portfolio_series.empty:
             return {
                 'total_return': 0.0,
                 'cagr': 0.0,
-                'max_drawdown': 0.0
+                'max_drawdown': 0.0,
+                'winning_streak': 0,
+                'losing_streak': 0
             }
             
         # Total Return
@@ -247,11 +250,32 @@ class RotationStrategy:
         rolling_max = portfolio_series.cummax()
         drawdown = (portfolio_series - rolling_max) / rolling_max
         max_drawdown = drawdown.min()
+
+        # Monthly Streaks
+        monthly_series = portfolio_series.resample('M').last()
+        monthly_returns = monthly_series.pct_change().dropna()
+        
+        win_streak = 0
+        max_win_streak = 0
+        lose_streak = 0
+        max_lose_streak = 0
+        
+        for ret in monthly_returns:
+            if ret > 0:
+                win_streak += 1
+                lose_streak = 0
+                max_win_streak = max(max_win_streak, win_streak)
+            elif ret < 0:
+                lose_streak += 1
+                win_streak = 0
+                max_lose_streak = max(max_lose_streak, lose_streak)
         
         return {
             'total_return': total_return,
             'cagr': cagr,
-            'max_drawdown': max_drawdown
+            'max_drawdown': max_drawdown,
+            'winning_streak': max_win_streak,
+            'losing_streak': max_lose_streak
         }
 
 class FixedRebalanceStrategy:

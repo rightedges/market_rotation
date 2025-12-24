@@ -266,7 +266,9 @@ def analysis(id):
     metrics = {
         "total_return": f"{metrics_data['total_return']:.2%}",
         "cagr": f"{metrics_data['cagr']:.2%}",
-        "max_drawdown": f"{metrics_data['max_drawdown']:.2%}"
+        "max_drawdown": f"{metrics_data['max_drawdown']:.2%}",
+        "winning_streak": f"{metrics_data['winning_streak']} mo",
+        "losing_streak": f"{metrics_data['losing_streak']} mo"
     }
     
     # Debug Logging
@@ -461,6 +463,8 @@ def fixed_analysis(id):
     metrics['total_return'] = f"{metrics['total_return']:.1%}"
     metrics['cagr'] = f"{metrics['cagr']:.1%}"
     metrics['max_drawdown'] = f"{metrics['max_drawdown']:.1%}"
+    metrics['winning_streak'] = f"{metrics['winning_streak']} mo"
+    metrics['losing_streak'] = f"{metrics['losing_streak']} mo"
     
     # Prepare Chart Data
     portfolio_series_monthly = portfolio_series.resample('M').last().ffill().fillna(0)
