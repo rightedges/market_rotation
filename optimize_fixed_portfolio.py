@@ -124,7 +124,7 @@ def optimize():
         print(f"CAGR: {best_config['cagr']:.2%}")
         print(f"Max Drawdown: {best_config['max_drawdown']:.2%}")
         print(f"Max Drawdown Period: {best_config['mdd_start'].strftime('%Y-%m') if best_config['mdd_start'] else 'N/A'} to {best_config['mdd_end'].strftime('%Y-%m') if best_config['mdd_end'] else 'N/A'}")
-        print(f"Sharpe Ratio: {best_config['sharpe']:.2f}")
+        print(f"Sharpe Ratio: {best_config['sharpe']:.3f}")
         print("Optimal Weights:")
         for t, w in best_config['weights'].items():
             print(f"  {t}: {w:.0%}")
@@ -141,7 +141,7 @@ def optimize():
         sorted_by_sharpe = sorted(results, key=lambda x: x['sharpe'], reverse=True)[:5]
         for i, res in enumerate(sorted_by_sharpe):
             w_str = ", ".join([f"{k}: {v:.0%}" for k, v in res['weights'].items()])
-            print(f"{i+1}. Sharpe: {res['sharpe']:.2f} | Return: {res['return']:.2%} | DD: {res['max_drawdown']:.2%} | MDD: {res['mdd_start'].strftime('%Y-%m') if res['mdd_start'] else 'N/A'} to {res['mdd_end'].strftime('%Y-%m') if res['mdd_end'] else 'N/A'} | Weights: {w_str}")
+            print(f"{i+1}. Sharpe: {res['sharpe']:.3f} | Return: {res['return']:.2%} | DD: {res['max_drawdown']:.2%} | MDD: {res['mdd_start'].strftime('%Y-%m') if res['mdd_start'] else 'N/A'} to {res['mdd_end'].strftime('%Y-%m') if res['mdd_end'] else 'N/A'} | Weights: {w_str}")
 
     else:
         print("No results found.")
