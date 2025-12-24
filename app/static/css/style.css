@@ -598,3 +598,10 @@ select:focus {
     width: 100%;
     text-align: left;
 }
+.text-success {
+    color: var(--success-color) !important;
+}
+
+.text-danger {
+    color: var(--danger-color) !important;
+}
