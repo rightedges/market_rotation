@@ -26,9 +26,9 @@ def optimize():
     # Align with web app logic: Drop rows with NaNs to ensure consistent start date
     df_close = df_close.dropna()
 
-    # Parameters to test
-    # Benchmark Allocation: 10% to 40% (0.10 to 0.40), step 0.05
-    benchmark_allocs = [x / 100.0 for x in range(10, 45, 5)]
+    # Benchmark Allocation: 0% (Equal Weight) up to 40%
+    # Including 0% allows testing the "Equal Footing" scenario recommended for Relaxed Mode.
+    benchmark_allocs = [0.0] + [x / 100.0 for x in range(10, 45, 5)]
     
     # Trend Weight: 5% to 15% (0.05 to 0.15), step 0.05
     trend_weights = [x / 100.0 for x in range(5, 20, 5)]
@@ -54,17 +54,20 @@ def optimize():
             print(f"Processed {count}/{total_combinations}...")
             
         # Construct Base Weights
-        # Benchmark gets bench_w
-        # Others get (1 - bench_w) / (N-1)
         base_weights = {}
-        base_weights[benchmark_ticker] = bench_w
-        
-        remaining = 1.0 - bench_w
-        other_tickers = [t for t in tickers if t != benchmark_ticker]
-        other_w = remaining / len(other_tickers)
-        
-        for t in other_tickers:
-            base_weights[t] = other_w
+        if bench_w == 0:
+            # Equal Weight for all assets (The "Clear" logic)
+            eq_w = 1.0 / len(tickers)
+            for t in tickers:
+                base_weights[t] = eq_w
+        else:
+            # Specified Benchmark Weight
+            base_weights[benchmark_ticker] = bench_w
+            remaining = 1.0 - bench_w
+            other_tickers = [t for t in tickers if t != benchmark_ticker]
+            other_w = remaining / len(other_tickers)
+            for t in other_tickers:
+                base_weights[t] = other_w
             
         # Initialize Strategy
         strategy = RotationStrategy(
@@ -119,7 +122,7 @@ def optimize():
         print(f"Longest Win/Lose Streak: {best_params['win_streak']}/{best_params['lose_streak']} mo")
         print("Optimal Parameters:")
         print(f"  Benchmark: {best_params['benchmark_ticker']}")
-        print(f"  Benchmark Allocation: {best_params['benchmark_alloc']:.0%}")
+        print(f"  Benchmark Allocation: {f'{best_params['benchmark_alloc']:.0%}' if best_params['benchmark_alloc'] > 0 else 'Equal Weight'}")
         print(f"  Trend Weight: {best_params['trend_w']:.0%}")
         print(f"  Relative Strength Weight: {best_params['rel_w']:.0%}")
         print(f"  Mode: {'Relaxed' if best_params['relaxed'] else 'Strict'}")
@@ -129,7 +132,8 @@ def optimize():
         sorted_results = sorted(results, key=lambda x: x['return'], reverse=True)[:5]
         for i, res in enumerate(sorted_results):
             mode_str = 'Relaxed' if res['relaxed'] else 'Strict'
-            print(f"{i+1}. Return: {res['return']:.2%} | CAGR: {res['cagr']:.2%} | DD: {res['max_drawdown']:.2%} | Streak W/L: {res['win_streak']}/{res['lose_streak']} mo | Bench ({res['benchmark_ticker']}): {res['benchmark_alloc']:.0%}, Trend: {res['trend_w']:.0%}, Rel: {res['rel_w']:.0%}, Mode: {mode_str}")
+            bench_alloc_str = f"{res['benchmark_alloc']:.0%}" if res['benchmark_alloc'] > 0 else "Equal"
+            print(f"{i+1}. Return: {res['return']:.2%} | CAGR: {res['cagr']:.2%} | DD: {res['max_drawdown']:.2%} | Streak W/L: {res['win_streak']}/{res['lose_streak']} mo | Bench ({res['benchmark_ticker']}): {bench_alloc_str}, Trend: {res['trend_w']:.0%}, Rel: {res['rel_w']:.0%}, Mode: {mode_str}")
     else:
         print("No results found.")
 
