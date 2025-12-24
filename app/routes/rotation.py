@@ -267,8 +267,7 @@ def analysis(id):
         "total_return": f"{metrics_data['total_return']:.2%}",
         "cagr": f"{metrics_data['cagr']:.2%}",
         "max_drawdown": f"{metrics_data['max_drawdown']:.2%}",
-        "winning_streak": f"{metrics_data['winning_streak']} mo",
-        "losing_streak": f"{metrics_data['losing_streak']} mo"
+        "mdd_period": f"{metrics_data['mdd_start'].strftime('%Y-%m')} to {metrics_data['mdd_end'].strftime('%Y-%m')}" if metrics_data['mdd_start'] else "N/A"
     }
     
     # Debug Logging
@@ -463,8 +462,7 @@ def fixed_analysis(id):
     metrics['total_return'] = f"{metrics['total_return']:.1%}"
     metrics['cagr'] = f"{metrics['cagr']:.1%}"
     metrics['max_drawdown'] = f"{metrics['max_drawdown']:.1%}"
-    metrics['winning_streak'] = f"{metrics['winning_streak']} mo"
-    metrics['losing_streak'] = f"{metrics['losing_streak']} mo"
+    metrics['mdd_period'] = f"{metrics['mdd_start'].strftime('%Y-%m')} to {metrics['mdd_end'].strftime('%Y-%m')}" if metrics['mdd_start'] else "N/A"
     
     # Prepare Chart Data
     portfolio_series_monthly = portfolio_series.resample('M').last().ffill().fillna(0)

@@ -99,14 +99,14 @@ def optimize():
                     'return': total_return,
                     'cagr': cagr,
                     'max_drawdown': max_drawdown,
-                    'win_streak': metrics['winning_streak'],
-                    'lose_streak': metrics['losing_streak']
+                    'mdd_start': metrics['mdd_start'],
+                    'mdd_end': metrics['mdd_end']
                 })
                 
                 if total_return > best_return:
                     best_return = total_return
                     best_params = results[-1]
-                    print(f"New Best: {best_return:.2%} (CAGR: {cagr:.2%}, DD: {max_drawdown:.2%}, Win/Lose: {metrics['winning_streak']}/{metrics['losing_streak']} mo) | Params: {best_params}")
+                    print(f"New Best: {best_return:.2%} (CAGR: {cagr:.2%}, DD: {max_drawdown:.2%}, MDD Period: {metrics['mdd_start'].strftime('%Y-%m') if metrics['mdd_start'] else 'N/A'} to {metrics['mdd_end'].strftime('%Y-%m') if metrics['mdd_end'] else 'N/A'}) | Params: {best_params}")
         except Exception as e:
             print(f"Error in run: {e}")
             continue
@@ -119,7 +119,7 @@ def optimize():
         print(f"Highest Return: {best_params['return']:.2%}")
         print(f"CAGR: {best_params['cagr']:.2%}")
         print(f"Max Drawdown: {best_params['max_drawdown']:.2%}")
-        print(f"Longest Win/Lose Streak: {best_params['win_streak']}/{best_params['lose_streak']} mo")
+        print(f"Max Drawdown Period: {best_params['mdd_start'].strftime('%Y-%m') if best_params['mdd_start'] else 'N/A'} to {best_params['mdd_end'].strftime('%Y-%m') if best_params['mdd_end'] else 'N/A'}")
         print("Optimal Parameters:")
         print(f"  Benchmark: {best_params['benchmark_ticker']}")
         print(f"  Benchmark Allocation: {f'{best_params['benchmark_alloc']:.0%}' if best_params['benchmark_alloc'] > 0 else 'Equal Weight'}")
@@ -133,7 +133,7 @@ def optimize():
         for i, res in enumerate(sorted_results):
             mode_str = 'Relaxed' if res['relaxed'] else 'Strict'
             bench_alloc_str = f"{res['benchmark_alloc']:.0%}" if res['benchmark_alloc'] > 0 else "Equal"
-            print(f"{i+1}. Return: {res['return']:.2%} | CAGR: {res['cagr']:.2%} | DD: {res['max_drawdown']:.2%} | Streak W/L: {res['win_streak']}/{res['lose_streak']} mo | Bench ({res['benchmark_ticker']}): {bench_alloc_str}, Trend: {res['trend_w']:.0%}, Rel: {res['rel_w']:.0%}, Mode: {mode_str}")
+            print(f"{i+1}. Return: {res['return']:.2%} | CAGR: {res['cagr']:.2%} | DD: {res['max_drawdown']:.2%} | MDD: {res['mdd_start'].strftime('%Y-%m') if res['mdd_start'] else 'N/A'} to {res['mdd_end'].strftime('%Y-%m') if res['mdd_end'] else 'N/A'} | Bench ({res['benchmark_ticker']}): {bench_alloc_str}, Trend: {res['trend_w']:.0%}, Rel: {res['rel_w']:.0%}, Mode: {mode_str}")
     else:
         print("No results found.")
 

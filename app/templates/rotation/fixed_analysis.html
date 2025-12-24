@@ -130,12 +130,8 @@
                 <span class="value">{{ metrics.max_drawdown }}</span>
             </div>
             <div class="metric">
-                <span class="label">Longest Win Period</span>
-                <span class="value">{{ metrics.winning_streak }}</span>
-            </div>
-            <div class="metric">
-                <span class="label">Worst Down Period</span>
-                <span class="value">{{ metrics.losing_streak }}</span>
+                <span class="label">Max Drawdown Period</span>
+                <span class="value" style="font-size: 0.9rem;">{{ metrics.mdd_period }}</span>
             </div>
         </div>
         <div style="position: relative; height: 400px; width: 100%;">

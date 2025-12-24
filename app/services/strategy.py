@@ -228,15 +228,15 @@ class RotationStrategy:
         """
         Calculates performance metrics for a portfolio series.
         Returns a dictionary with 'total_return', 'cagr', 'max_drawdown',
-        'winning_streak', and 'losing_streak'.
+        'mdd_start', and 'mdd_end'.
         """
         if portfolio_series.empty:
             return {
                 'total_return': 0.0,
                 'cagr': 0.0,
                 'max_drawdown': 0.0,
-                'winning_streak': 0,
-                'losing_streak': 0
+                'mdd_start': None,
+                'mdd_end': None
             }
             
         # Total Return
@@ -246,36 +246,22 @@ class RotationStrategy:
         days = (portfolio_series.index[-1] - portfolio_series.index[0]).days
         cagr = (1 + total_return) ** (365 / days) - 1 if days > 0 else 0
         
-        # Max Drawdown
+        # Max Drawdown and Dates
         rolling_max = portfolio_series.cummax()
         drawdown = (portfolio_series - rolling_max) / rolling_max
         max_drawdown = drawdown.min()
-
-        # Monthly Streaks
-        monthly_series = portfolio_series.resample('M').last()
-        monthly_returns = monthly_series.pct_change().dropna()
         
-        win_streak = 0
-        max_win_streak = 0
-        lose_streak = 0
-        max_lose_streak = 0
-        
-        for ret in monthly_returns:
-            if ret > 0:
-                win_streak += 1
-                lose_streak = 0
-                max_win_streak = max(max_win_streak, win_streak)
-            elif ret < 0:
-                lose_streak += 1
-                win_streak = 0
-                max_lose_streak = max(max_lose_streak, lose_streak)
+        mdd_end = drawdown.idxmin()
+        peak_level = rolling_max.loc[mdd_end]
+        # Find the peak date preceding the mdd_end
+        mdd_start = portfolio_series[:mdd_end].idxmax()
         
         return {
             'total_return': total_return,
             'cagr': cagr,
             'max_drawdown': max_drawdown,
-            'winning_streak': max_win_streak,
-            'losing_streak': max_lose_streak
+            'mdd_start': mdd_start,
+            'mdd_end': mdd_end
         }
 
 class FixedRebalanceStrategy:
