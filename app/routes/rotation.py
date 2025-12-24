@@ -305,6 +305,17 @@ def analysis(id):
             for ticker in rotation_tickers:
                 row[ticker] = weights.get(ticker, 0)
             rotation_data.append(row)
+            
+        # Calculate gain/loss between rebalancing
+        for i in range(len(rotation_data) - 1):
+            current_val = rotation_data[i]['value']
+            prev_val = rotation_data[i+1]['value']
+            if prev_val > 0:
+                rotation_data[i]['gain_loss'] = (current_val / prev_val) - 1
+            else:
+                rotation_data[i]['gain_loss'] = 0
+        if rotation_data:
+            rotation_data[-1]['gain_loss'] = 0 # No previous rebalance for first entry
     
     # Calculate current benchmark weight for display
     current_bench_weight = int(base_weights.get(benchmark_ticker, 0) * 100)
@@ -490,6 +501,17 @@ def fixed_analysis(id):
             for ticker in rotation_tickers:
                 row[ticker] = weights.get(ticker, 0)
             rotation_data.append(row)
+
+        # Calculate gain/loss between rebalancing
+        for i in range(len(rotation_data) - 1):
+            current_val = rotation_data[i]['value']
+            prev_val = rotation_data[i+1]['value']
+            if prev_val > 0:
+                rotation_data[i]['gain_loss'] = (current_val / prev_val) - 1
+            else:
+                rotation_data[i]['gain_loss'] = 0
+        if rotation_data:
+            rotation_data[-1]['gain_loss'] = 0
     
     import json
     return render_template('rotation/fixed_analysis.html',
